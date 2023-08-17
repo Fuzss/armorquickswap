@@ -4,7 +4,10 @@ import com.google.common.collect.Maps;
 import com.mojang.blaze3d.platform.InputConstants;
 import fuzs.puzzleslib.api.client.core.v1.ClientModConstructor;
 import fuzs.puzzleslib.api.client.event.v1.ScreenMouseEvents;
+import fuzs.puzzleslib.api.client.screen.v2.ScreenHelper;
+import fuzs.puzzleslib.api.core.v1.ModLoaderEnvironment;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
+import fuzs.puzzleslib.api.event.v1.entity.player.PlayerInteractEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
@@ -25,14 +28,17 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
 
     @Override
     public void onConstructMod() {
+
+        if (!ModLoaderEnvironment.INSTANCE.isForge()) {
+            PlayerInteractEvents.USE_ENTITY_AT.register(ArmorStandHandler::onUseEntityAt);
+        }
+
         ScreenMouseEvents.beforeMouseClick(AbstractContainerScreen.class).register((screen, mouseX, mouseY, button) -> {
             if (button == InputConstants.MOUSE_BUTTON_RIGHT) {
-                Slot slot = screen.getSlotUnderMouse();
+                Slot slot = ContainerScreenHelper.findSlot(screen, mouseX, mouseY);
                 if (slot.getItem().getItem() instanceof ArmorItem item) {
-                    Minecraft minecraft = screen.getMinecraft();
+                    Minecraft minecraft = ScreenHelper.INSTANCE.getMinecraft(screen);
                     LocalPlayer player = minecraft.player;
-//                    screen.getMinecraft().gameMode.handleInventoryMouseClick(screen.getMenu().containerId, unwrapSlot(slot).index, item.getEquipmentSlot().getIndex(Inventory.INVENTORY_SIZE), ClickType.SWAP, player);
-//                    return EventResult.INTERRUPT;
                     Slot fromSlot = null;
                     int armorId = item.getEquipmentSlot().getIndex(Inventory.INVENTORY_SIZE);
                     Inventory inventory = player.getInventory();
