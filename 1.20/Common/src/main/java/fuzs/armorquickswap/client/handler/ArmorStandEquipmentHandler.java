@@ -103,10 +103,11 @@ public class ArmorStandEquipmentHandler {
     }
 
     @Nullable
-    private static Slot findInventorySlot(AbstractContainerMenu containerMenu, int slotNum) {
+    public static Slot findInventorySlot(AbstractContainerMenu containerMenu, int slotNum) {
         // do not rely on hardcoded slot numbers, instead go out and search for the correct slot
         // container menu slots vs inventory slots really is a mess, so probably better to take this approach
         for (Slot slot : containerMenu.slots) {
+            slot = InventoryArmorClickHandler.findNestedSlot(slot);
             if (slot.container instanceof Inventory && slot.getContainerSlot() == slotNum) {
                 return slot;
             }
