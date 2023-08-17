@@ -66,25 +66,29 @@ public class InventoryArmorClickHandler {
     }
 
     public static Slot findNestedSlot(Slot slot) {
+        return findNestedSlot(slot, 5);
+    }
+
+    private static Slot findNestedSlot(Slot slot, int searchDepth) {
         Objects.requireNonNull(slot, "slot is null");
-        slot = SLOT_CLAZZ_METHOD_HANDLES.computeIfAbsent(slot.getClass(), InventoryArmorClickHandler::findNestedSlot).apply(slot);
+        slot = SLOT_CLAZZ_METHOD_HANDLES.computeIfAbsent(slot.getClass(), clazz -> findNestedSlot(clazz, searchDepth)).apply(slot);
         Objects.requireNonNull(slot, "slot is null");
         return slot;
     }
 
-    private static UnaryOperator<Slot> findNestedSlot(Class<? extends Slot> clazz) {
+    private static UnaryOperator<Slot> findNestedSlot(Class<? extends Slot> clazz, int searchDepth) {
         // the creative mode screen wraps slots, but in a terrible way where not all properties of the original are forwarded, mainly public fields,
         // so we use this general approach in case another mod has a similar idea and just search for a wrapped slot inside every slot instance
         // the resulting method handle is cached, so this isn't really a burden (not that the code runs often anyway)
-        if (clazz != Slot.class) {
+        if (searchDepth >= 0 && clazz != Slot.class) {
             for (Field field : clazz.getDeclaredFields()) {
-                if (Slot.class.isAssignableFrom(field.getType())) {
+                if (Slot.class.isAssignableFrom(field.getType()) && !clazz.isAssignableFrom(field.getType())) {
                     field.setAccessible(true);
                     try {
                         MethodHandle methodHandle = MethodHandles.lookup().unreflectGetter(field);
                         return innerSlot -> {
                             try {
-                                return findNestedSlot((Slot) methodHandle.invoke(innerSlot));
+                                return findNestedSlot((Slot) methodHandle.invoke(innerSlot), searchDepth - 1);
                             } catch (Throwable e) {
                                 throw new RuntimeException(e);
                             }
