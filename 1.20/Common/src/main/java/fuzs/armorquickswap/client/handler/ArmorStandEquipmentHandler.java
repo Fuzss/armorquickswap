@@ -5,13 +5,17 @@ import fuzs.puzzleslib.api.event.v1.core.EventResult;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -31,6 +35,7 @@ public class ArmorStandEquipmentHandler {
             // this is like a temporary storage that doesn't require using a different inventory slot, as we need the selected slot for interacting with the armor stand
             ItemStack itemStack = slot.getItem();
             boolean hasItemInHand = slot.hasItem();
+
             if (hasItemInHand) {
 
                 // when the selected item is picked up here a copied item stack instance is set as the carried stack, while the original has its count set to zero
@@ -69,6 +74,9 @@ public class ArmorStandEquipmentHandler {
                         }
 
                         minecraft.gameMode.interactAt(player, armorStand, new EntityHitResult(armorStand, hitVector), interactionHand);
+                        // also perform interaction client-side to avoid potential desyncs
+                        // this ignores disabled slots as the client doesn't know them, but that should be a rare scenario
+                        interactAt(armorStand, player, hitVector.subtract(armorStand.position()), interactionHand);
 
                         if (!armorStandHasArmor && minecraft.gameMode.hasInfiniteItems()) {
 
@@ -80,23 +88,6 @@ public class ArmorStandEquipmentHandler {
 
                         // if the amor stand had equipment where we clicked we are holding that piece now, so set it to our armor slot
                         minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, armorSlot.index, slot.getContainerSlot(), ClickType.SWAP, player);
-
-                        if (false && armorStandHasArmor) {
-
-                            // if the amor stand had equipment where we clicked we are holding that piece now, so set it to our armor slot
-                            minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, armorSlot.index, slot.getContainerSlot(), ClickType.SWAP, player);
-                        } else if (false && minecraft.gameMode.hasInfiniteItems()) {
-
-                            // creative mode doesn't remove armor item from hand if the armor stand has nothing to switch with (clicked armor stand equipment slot is empty)
-                            // so we delete the armor item that was duplicated manually from the player hand so our loop may continue
-                            containerMenu.getSlot(slot.index).setByPlayer(ItemStack.EMPTY);
-                            minecraft.gameMode.handleCreativeModeItemAdd(ItemStack.EMPTY, slot.index);
-                        } else if (false) {
-
-                            // this is just a cleanup call, sometimes a swapped item stays for a split second in the main hand client-side
-                            // this just fixes the visual artifact that comes from that
-                            containerMenu.getSlot(slot.index).setByPlayer(ItemStack.EMPTY);
-                        }
                     }
                 }
             }
@@ -105,11 +96,6 @@ public class ArmorStandEquipmentHandler {
 
                 // set back the originally selected item to the main hand slot which we parked as the cursor carried stack so we can freely use the selected slot
                 minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, slot.index, InputConstants.MOUSE_BUTTON_LEFT, ClickType.PICKUP, player);
-            } else if (false && !minecraft.gameMode.hasInfiniteItems()) {
-
-                // this is just a cleanup call, sometimes a swapped item stays for a split second in the main hand client-side
-                // this just fixes the visual artifact that comes from that
-                containerMenu.getSlot(slot.index).setByPlayer(ItemStack.EMPTY);
             }
 
             // manually swing the player hand since the event won't do it when cancelled
@@ -147,5 +133,74 @@ public class ArmorStandEquipmentHandler {
             case HEAD -> 1.95;
             default -> throw new RuntimeException();
         } * (isSmall ? 0.5 : 1.0);
+    }
+
+    private static InteractionResult interactAt(ArmorStand armorStand, Player player, Vec3 hitVector, InteractionHand interactionHand) {
+        ItemStack itemInHand = player.getItemInHand(interactionHand);
+        if (!armorStand.isMarker() && !itemInHand.is(Items.NAME_TAG)) {
+            if (player.isSpectator()) {
+                return InteractionResult.SUCCESS;
+            } else {
+                // cut out the client check here so the client also changes the gear
+                EquipmentSlot slot = Mob.getEquipmentSlotForItem(itemInHand);
+                if (itemInHand.isEmpty()) {
+                    EquipmentSlot equipmentSlot = getClickedSlot(armorStand, hitVector);
+                    if (armorStand.hasItemInSlot(equipmentSlot) && swapItem(armorStand, player, equipmentSlot, itemInHand, interactionHand)) {
+                        return InteractionResult.SUCCESS;
+                    }
+                } else {
+                    if (slot.getType() == EquipmentSlot.Type.HAND && !armorStand.isShowArms()) {
+                        return InteractionResult.FAIL;
+                    }
+
+                    if (swapItem(armorStand, player, slot, itemInHand, interactionHand)) {
+                        return InteractionResult.SUCCESS;
+                    }
+                }
+
+                return InteractionResult.PASS;
+            }
+        } else {
+            return InteractionResult.PASS;
+        }
+    }
+
+    private static EquipmentSlot getClickedSlot(ArmorStand armorStand, Vec3 hitVector) {
+        EquipmentSlot equipmentSlot = EquipmentSlot.MAINHAND;
+        boolean bl = armorStand.isSmall();
+        double d = bl ? hitVector.y * 2.0 : hitVector.y;
+        EquipmentSlot equipmentSlot2 = EquipmentSlot.FEET;
+        if (d >= 0.1 && d < 0.1 + (bl ? 0.8 : 0.45) && armorStand.hasItemInSlot(equipmentSlot2)) {
+            equipmentSlot = EquipmentSlot.FEET;
+        } else if (d >= 0.9 + (bl ? 0.3 : 0.0) && d < 0.9 + (bl ? 1.0 : 0.7) && armorStand.hasItemInSlot(EquipmentSlot.CHEST)) {
+            equipmentSlot = EquipmentSlot.CHEST;
+        } else if (d >= 0.4 && d < 0.4 + (bl ? 1.0 : 0.8) && armorStand.hasItemInSlot(EquipmentSlot.LEGS)) {
+            equipmentSlot = EquipmentSlot.LEGS;
+        } else if (d >= 1.6 && armorStand.hasItemInSlot(EquipmentSlot.HEAD)) {
+            equipmentSlot = EquipmentSlot.HEAD;
+        } else if (!armorStand.hasItemInSlot(EquipmentSlot.MAINHAND) && armorStand.hasItemInSlot(EquipmentSlot.OFFHAND)) {
+            equipmentSlot = EquipmentSlot.OFFHAND;
+        }
+
+        return equipmentSlot;
+    }
+
+    private static boolean swapItem(ArmorStand armorStand, Player player, EquipmentSlot slot, ItemStack stack, InteractionHand hand) {
+        ItemStack itemInSlot = armorStand.getItemBySlot(slot);
+        if (player.getAbilities().instabuild && itemInSlot.isEmpty() && !stack.isEmpty()) {
+            armorStand.setItemSlot(slot, stack.copyWithCount(1));
+            return true;
+        } else if (!stack.isEmpty() && stack.getCount() > 1) {
+            if (!itemInSlot.isEmpty()) {
+                return false;
+            } else {
+                armorStand.setItemSlot(slot, stack.split(1));
+                return true;
+            }
+        } else {
+            armorStand.setItemSlot(slot, stack);
+            player.setItemInHand(hand, itemInSlot);
+            return true;
+        }
     }
 }
