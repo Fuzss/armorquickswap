@@ -30,8 +30,8 @@ public class ArmorStandEquipmentHandler {
             // we pick up the selected item, which sets it to the cursor carried stack for the inventory menu (which is always open for the player while no other container menu is)
             // this is like a temporary storage that doesn't require using a different inventory slot, as we need the selected slot for interacting with the armor stand
             ItemStack itemStack = slot.getItem();
-            boolean pickUpSelectedItem = slot.hasItem();
-            if (pickUpSelectedItem) {
+            boolean hasItemInHand = slot.hasItem();
+            if (hasItemInHand) {
 
                 // when the selected item is picked up here a copied item stack instance is set as the carried stack, while the original has its count set to zero
                 // this is a problem for areas of the game that cache the held stack, since they will now want to update as the count of the stack they are holding on to has changed
@@ -55,38 +55,57 @@ public class ArmorStandEquipmentHandler {
 
                     if (playerHasArmor || armorStandHasArmor) {
 
-                        if (playerHasArmor) {
-
-                            // if we are wearing an armor piece corresponding to the armor stand part we are about to click swap it to the selected slot,
-                            // so we can place or swap with the armor stand equipment
-                            minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, armorSlot.index, slot.getContainerSlot(), ClickType.SWAP, player);
-                        }
+                        // if we are wearing an armor piece corresponding to the armor stand part we are about to click swap it to the selected slot,
+                        // so we can place or swap with the armor stand equipment
+                        minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, armorSlot.index, slot.getContainerSlot(), ClickType.SWAP, player);
 
                         Vec3 hitVector = hitResult.getLocation();
-                        // set the y-value on the hit vector to a value corresponding to the current equipment slot
-                        hitVector = new Vec3(hitVector.x(), armorStand.getY() + getEquipmentClickHeight(equipmentSlot, armorStand.isSmall()), hitVector.z());
+
+                        if (!playerHasArmor) {
+
+                            // set the y-value on the hit vector to a value corresponding to the current equipment slot
+                            // we don't need this when the player is holding an armor item to swap with, vanilla will select the correct piece from the stand
+                            hitVector = new Vec3(hitVector.x(), armorStand.getY() + getEquipmentClickHeight(equipmentSlot, armorStand.isSmall()), hitVector.z());
+                        }
+
                         minecraft.gameMode.interactAt(player, armorStand, new EntityHitResult(armorStand, hitVector), interactionHand);
 
-                        if (armorStandHasArmor) {
-
-                            // if the amor stand had equipment where we clicked we are holding that piece now, so set it to our armor slot
-                            minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, armorSlot.index, slot.getContainerSlot(), ClickType.SWAP, player);
-                        } else if (minecraft.gameMode.hasInfiniteItems()) {
+                        if (!armorStandHasArmor && minecraft.gameMode.hasInfiniteItems()) {
 
                             // creative mode doesn't remove armor item from hand if the armor stand has nothing to switch with (clicked armor stand equipment slot is empty)
                             // so we delete the armor item that was duplicated manually from the player hand so our loop may continue
                             containerMenu.getSlot(slot.index).setByPlayer(ItemStack.EMPTY);
                             minecraft.gameMode.handleCreativeModeItemAdd(ItemStack.EMPTY, slot.index);
                         }
+
+                        // if the amor stand had equipment where we clicked we are holding that piece now, so set it to our armor slot
+                        minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, armorSlot.index, slot.getContainerSlot(), ClickType.SWAP, player);
+
+                        if (false && armorStandHasArmor) {
+
+                            // if the amor stand had equipment where we clicked we are holding that piece now, so set it to our armor slot
+                            minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, armorSlot.index, slot.getContainerSlot(), ClickType.SWAP, player);
+                        } else if (false && minecraft.gameMode.hasInfiniteItems()) {
+
+                            // creative mode doesn't remove armor item from hand if the armor stand has nothing to switch with (clicked armor stand equipment slot is empty)
+                            // so we delete the armor item that was duplicated manually from the player hand so our loop may continue
+                            containerMenu.getSlot(slot.index).setByPlayer(ItemStack.EMPTY);
+                            minecraft.gameMode.handleCreativeModeItemAdd(ItemStack.EMPTY, slot.index);
+                        } else if (false) {
+
+                            // this is just a cleanup call, sometimes a swapped item stays for a split second in the main hand client-side
+                            // this just fixes the visual artifact that comes from that
+                            containerMenu.getSlot(slot.index).setByPlayer(ItemStack.EMPTY);
+                        }
                     }
                 }
             }
 
-            if (pickUpSelectedItem) {
+            if (hasItemInHand) {
 
                 // set back the originally selected item to the main hand slot which we parked as the cursor carried stack so we can freely use the selected slot
                 minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, slot.index, InputConstants.MOUSE_BUTTON_LEFT, ClickType.PICKUP, player);
-            } else if (!minecraft.gameMode.hasInfiniteItems()) {
+            } else if (false && !minecraft.gameMode.hasInfiniteItems()) {
 
                 // this is just a cleanup call, sometimes a swapped item stays for a split second in the main hand client-side
                 // this just fixes the visual artifact that comes from that
@@ -124,7 +143,8 @@ public class ArmorStandEquipmentHandler {
             // clickedHeight >= 0.4D && clickedHeight < (isSmall ? 1.4D : 1.2D)
             case LEGS -> isSmall ? 0.9 : 0.8;
             // clickedHeight >= 1.6D && clickedHeight < 1.975D
-            case HEAD -> 1.7875;
+            // increase to avoid conflict with chest slot when small
+            case HEAD -> 1.95;
             default -> throw new RuntimeException();
         } * (isSmall ? 0.5 : 1.0);
     }
