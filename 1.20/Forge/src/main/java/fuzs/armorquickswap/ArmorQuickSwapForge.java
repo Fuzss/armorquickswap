@@ -1,6 +1,7 @@
 package fuzs.armorquickswap;
 
 import fuzs.puzzleslib.api.core.v1.ModConstructor;
+import fuzs.puzzleslib.api.core.v1.ModLoaderEnvironment;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.DataGenerator;
 import net.minecraft.data.PackOutput;
@@ -18,6 +19,7 @@ public class ArmorQuickSwapForge {
 
     @SubscribeEvent
     public static void onConstructMod(final FMLConstructModEvent evt) {
+        if (ModLoaderEnvironment.INSTANCE.isServer()) return;
         ModConstructor.construct(ArmorQuickSwap.MOD_ID, ArmorQuickSwap::new);
     }
 

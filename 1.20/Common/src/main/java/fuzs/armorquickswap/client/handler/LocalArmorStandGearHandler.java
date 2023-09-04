@@ -1,6 +1,8 @@
 package fuzs.armorquickswap.client.handler;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import fuzs.armorquickswap.ArmorQuickSwap;
+import fuzs.puzzleslib.api.core.v1.ModLoaderEnvironment;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -21,9 +23,12 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
-public class ArmorStandEquipmentHandler {
+public class LocalArmorStandGearHandler {
 
     public static EventResult onUseInteraction(Minecraft minecraft, LocalPlayer player, InteractionHand interactionHand, HitResult hitResult) {
+
+        // only run when missing on the server, as the server-side implementation is much safer
+        if (ModLoaderEnvironment.INSTANCE.isModPresentServerside(ArmorQuickSwap.MOD_ID)) return EventResult.PASS;
 
         if (hitResult.getType() == HitResult.Type.ENTITY && ((EntityHitResult) hitResult).getEntity() instanceof ArmorStand armorStand && player.isShiftKeyDown()) {
 
@@ -94,7 +99,7 @@ public class ArmorStandEquipmentHandler {
 
             if (hasItemInHand) {
 
-                // set back the originally selected item to the main hand slot which we parked as the cursor carried stack so we can freely use the selected slot
+                // set back the originally selected item to the main hand slot which we parked as the cursor carried stack, so we can freely use the selected slot
                 minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, slot.index, InputConstants.MOUSE_BUTTON_LEFT, ClickType.PICKUP, player);
             }
 

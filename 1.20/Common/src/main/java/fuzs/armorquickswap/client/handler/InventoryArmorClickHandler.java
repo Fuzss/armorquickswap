@@ -37,7 +37,7 @@ public class InventoryArmorClickHandler {
             hoveredSlot = findNestedSlot(hoveredSlot);
             if (hoveredSlot.container != inventory) return EventResult.PASS;
 
-            Slot armorSlot = ArmorStandEquipmentHandler.findInventorySlot(screen.getMenu(), item.getEquipmentSlot().getIndex(inventory.items.size()));
+            Slot armorSlot = LocalArmorStandGearHandler.findInventorySlot(screen.getMenu(), item.getEquipmentSlot().getIndex(inventory.items.size()));
             if (armorSlot == null) return EventResult.PASS;
 
             if (!ItemStack.isSameItemSameTags(hoveredSlot.getItem(), armorSlot.getItem())) {
