@@ -4,7 +4,6 @@ import fuzs.armorquickswap.mixin.client.accessor.ModelPartAccessor;
 import net.minecraft.client.model.geom.ModelPart;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 public class ModelPartHelper {
@@ -18,8 +17,7 @@ public class ModelPartHelper {
         return models;
     }
 
-    private static void explodeRecursive(List<ModelPart> parts, ModelPart part)
-    {
+    private static void explodeRecursive(List<ModelPart> parts, ModelPart part) {
         parts.add(part);
 
         for (ModelPart next : ModelPartAccessor.class.cast(part).armorquickswap$getChildren().values()) {

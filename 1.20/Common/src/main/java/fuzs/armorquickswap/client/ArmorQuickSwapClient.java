@@ -5,6 +5,7 @@ import com.google.common.collect.Iterables;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+import fuzs.armorquickswap.ArmorQuickSwap;
 import fuzs.armorquickswap.client.handler.InventoryArmorClickHandler;
 import fuzs.armorquickswap.client.handler.LocalArmorStandGearHandler;
 import fuzs.armorquickswap.mixin.client.accessor.AgeableListModelAccessor;
@@ -34,6 +35,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.level.entity.EntityInLevelCallback;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -45,13 +47,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ArmorQuickSwapClient implements ClientModConstructor {
-    private static final Map<LivingEntity, EntityInLevelCallback> LEVEL_CALLBACKS = new WeakHashMap<>();
+    private static final Map<LivingEntity, ClientEntityData> LEVEL_CALLBACKS = new WeakHashMap<>();
     private static final int SHATTER_DEATH_TIME = 100;
-
-    @Override
-    public void onConstructMod() {
-        registerHandlers();
-    }
 
     private static void registerHandlers() {
         // run before other mods like Quark that might interfere here
@@ -68,7 +65,7 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
             RemovalReasonHoldingNullCallback newCallback = new RemovalReasonHoldingNullCallback(entity, callback);
             entity.setLevelCallback(newCallback);
             EntityInLevelCallback forwardingCallback = new ForwardingEntityInLevelCallback(callback, newCallback);
-            LEVEL_CALLBACKS.put(entity, forwardingCallback);
+            LEVEL_CALLBACKS.put(entity, new ClientEntityData(forwardingCallback, entity.getDeltaMovement(), entity.position()));
             entity.setSilent(true);
 
 //            entity.setNoGravity(true);
@@ -84,46 +81,85 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
             if (!entity.level().isClientSide) return EventResult.PASS;
             if (!entity.isDeadOrDying()) return EventResult.PASS;
             if (entity.deathTime >= SHATTER_DEATH_TIME) {
-                EntityInLevelCallback callback = LEVEL_CALLBACKS.remove(entity);
-                if (callback != null) callback.onRemove(entity.getRemovalReason());
+                ClientEntityData data = LEVEL_CALLBACKS.remove(entity);
+                if (data != null) data.callback().onRemove(entity.getRemovalReason());
             } else {
 
-//                entity.setSharedFlagOnFire(false);
-//                entity.setInvisible(true);
 //                entity.noPhysics = true;
 //                entity.setNoGravity(true);
 //                if (entity instanceof Mob mob) mob.setNoAi(true);
+
                 entity.deathTime++;
 
-                Vec3 deltaMovement = entity.getDeltaMovement();
+//                ClientEntityData clientEntityData = LEVEL_CALLBACKS.get(entity);
+//                if (clientEntityData != null) clientEntityData.moveEntity(entity);
 
-                double deathTimeScale = 1.0 - entity.deathTime / (float) SHATTER_DEATH_TIME;
+                if (true) {
 
-                deathTimeScale = deathTimeScale >= 1.0 ? 1.0 : 1.0 - Math.pow(2.0, -10.0 * deathTimeScale);
+                    ClientEntityData clientEntityData = LEVEL_CALLBACKS.get(entity);
+                    Vec3 deltaMovement = entity.getDeltaMovement();
 
-                Vec3 scale = deltaMovement.multiply(0.4, 1.0, 0.4).scale(Math.pow(deathTimeScale, 2.0));
+                    if (deltaMovement.equals(clientEntityData.deltaMovement)) return EventResult.INTERRUPT;
+
+                    if (Math.abs(deltaMovement.x) > Math.abs(clientEntityData.deltaMovement.x)) {
+                        clientEntityData.deltaMovement = deltaMovement;
+                    } else if (Math.abs(deltaMovement.z) > Math.abs(clientEntityData.deltaMovement.z)) {
+                        clientEntityData.deltaMovement = deltaMovement;
+                    } else if (deltaMovement.y > clientEntityData.deltaMovement.y) {
+                        clientEntityData.deltaMovement = deltaMovement;
+                    }
+
+                    deltaMovement = clientEntityData.deltaMovement;
+
+//                    if (clientEntityData.deltaMovement == null) {
+//                        clientEntityData.deltaMovement = deltaMovement.multiply(0.4, 0.15, 0.4);
+//                    }
+
+//                    deltaMovement = clientEntityData.deltaMovement;
+
+                    entity.xo = entity.getX();
+                    entity.yo = entity.getY();
+                    entity.zo = entity.getZ();
+
+                    double pX = entity.getX() + deltaMovement.x * 0.2;
+                    double pY = entity.getY() + deltaMovement.y * 0.05;
+                    double pZ = entity.getZ() + deltaMovement.z * 0.2;
+
+                    entity.setPos(pX, pY, pZ);
+
+                    clientEntityData.deltaMovement = deltaMovement.scale(0.97);
+//                    entity.setDeltaMovement(entity.getDeltaMovement().scale(0.97));
+                }
+
+
+
+//                double deathTimeScale = 1.0 - entity.deathTime / (float) SHATTER_DEATH_TIME;
+//
+//                deathTimeScale = deathTimeScale >= 1.0 ? 1.0 : 1.0 - Math.pow(2.0, -10.0 * deathTimeScale);
+//
+//                Vec3 scale = deltaMovement.multiply(0.4, 1.0, 0.4).scale(deathTimeScale);
+//                if (scale.y < 0.0) scale = new Vec3(scale.x, 0.0, scale.z);
 //                entity.move(MoverType.SELF, scale);
-
-                entity.setDeltaMovement(deltaMovement);
-
-                entity.xo = entity.getX();
-                entity.yo = entity.getY();
-                entity.zo = entity.getZ();
-
-                Vec3 motion = entity.getDeltaMovement();
-                double pX = entity.getX() + scale.x;
-                double pY = entity.getY() + scale.y;
-                double pZ = entity.getZ() + scale.z;
-
-                entity.setDeltaMovement(entity.getDeltaMovement().scale(0.97));
-                entity.setPos(pX, pY, pZ);
+//
+//                entity.setDeltaMovement(deltaMovement);
+//
+//                entity.xo = entity.getX();
+//                entity.yo = entity.getY();
+//                entity.zo = entity.getZ();
+//
+//                Vec3 motion = entity.getDeltaMovement();
+//                double pX = entity.getX() + scale.x;
+//                double pY = entity.getY() + scale.y;
+//                double pZ = entity.getZ() + scale.z;
+//
+//                entity.setDeltaMovement(entity.getDeltaMovement().scale(0.97));
+//                entity.setPos(pX, pY, pZ);
             }
             return EventResult.INTERRUPT;
         });
 
 
-
-        if (true) return;
+//        if (true) return;
 
         RenderLivingEvents.BEFORE.register(ArmorQuickSwapClient::onBeforeRenderEntity);
     }
@@ -143,26 +179,19 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
             return EventResult.PASS;
         }
 
+        // vanilla is very aggressive with syncing those shared flags, so we set them during rendering since they are used right after the entity is rendered
+        // fire flag prevents rendering the fire overlay, mainly useful for undead mobs burning in the sun
+        entity.setSharedFlagOnFire(false);
+        // invisibility flag prevents the mob shadow from rendering which is not desired for the death animation
+        // unfortunately the entity hitbox (F3+B) also no longer renders, but that's how it is
+        entity.setInvisible(true);
+
+        poseStack.pushPose();
 
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
         poseStack.scale(-1.0F, -1.0F, 1.0F);
-
-
         ((LivingEntityRendererAccessor<T, M>) renderer).armorquickswap$callScale(entity, poseStack, partialTick);
-
-
         poseStack.translate(0F, -1.501F, 0F);
-
-        float f = Mth.rotLerp(partialTick, entity.yBodyRotO, entity.yBodyRot);
-        float g = Mth.rotLerp(partialTick, entity.yHeadRotO, entity.yHeadRot);
-        float h = g - f;
-        float l = 0.0F, k = 0.0F;
-        float j = Mth.lerp(partialTick, entity.xRotO, entity.getXRot());
-
-        float i = ((LivingEntityRendererAccessor<T, M>) renderer).armorquickswap$callGetBob(entity, partialTick);
-
-//        renderer.getModel().prepareMobModel(entity, l, k, partialTick);
-//        renderer.getModel().setupAnim(entity, l, k, i, h, j);
 
         Map<ModelPart, PartPose> storedPoses = modelRootParts.stream().flatMap(ModelPart::getAllParts).collect(Collectors.toMap(Function.identity(), ModelPart::storePose));
 
@@ -172,26 +201,18 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
 
         modelParts.forEach(t -> t.yRot -= 12.0);
 
-        float rotationYaw = Mth.rotLerp(partialTick, entity.yBodyRotO, entity.yBodyRot);
-
         float alpha = Mth.clamp((entity.deathTime + partialTick) / SHATTER_DEATH_TIME, 0.0F, 1.0F);
         RenderType renderType = RenderType.entityTranslucentCull(renderer.getTextureLocation(entity));
         render(modelParts, entity, entity.yBodyRot, poseStack, multiBufferSource.getBuffer(renderType), packedLight, OverlayTexture.NO_OVERLAY, 1F, 1F, 1F, alpha);
 
-//        if (!entity.isSpectator()) {
-//            for(RenderLayer<T, M> renderLayer : ((LivingEntityRendererAccessor<T, M>) renderer).armorquickswap$getLayers()) {
-//                renderLayer.render(poseStack, multiBufferSource, packedLight, entity, l, k, partialTick, i, h, j);
-//            }
-//        }
-
-
         storedPoses.forEach(ModelPart::loadPose);
+
+        poseStack.popPose();
 
         return EventResult.INTERRUPT;
     }
 
-    public static void render(List<ModelPart> modelList, LivingEntity entity, float rotationYaw, PoseStack poseStack, VertexConsumer bufferIn, int packedLightIn, int packedOverlayIn, float red, float green, float blue, float progress)
-    {
+    public static void render(List<ModelPart> modelList, LivingEntity entity, float rotationYaw, PoseStack poseStack, VertexConsumer bufferIn, int packedLightIn, int packedOverlayIn, float red, float green, float blue, float progress) {
 
         poseStack.pushPose();
 
@@ -200,8 +221,7 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
 
         Vec3 motion = entity.getDeltaMovement();
         float alpha = 1.0F - progress;
-        for(int i = 0; i < modelList.size(); i++)
-        {
+        for (int i = 0; i < modelList.size(); i++) {
             ModelPart modelPart = modelList.get(i);
 
             poseStack.pushPose();
@@ -225,6 +245,62 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
         }
 
         poseStack.popPose();
+    }
+
+    @Override
+    public void onConstructMod() {
+        registerHandlers();
+    }
+
+    private interface RemovalReasonHolder {
+
+        Entity.RemovalReason getRemovalReason();
+    }
+
+    private static final class ClientEntityData {
+        private final EntityInLevelCallback callback;
+        public Vec3 deltaMovement;
+        private double deltaX;
+        private double deltaY;
+        private double deltaZ;
+        private Vec3 position;
+
+        private ClientEntityData(EntityInLevelCallback callback, Vec3 deltaMovement, Vec3 position) {
+            this.callback = callback;
+            this.deltaMovement = deltaMovement;
+            this.deltaX = deltaMovement.x;
+            this.deltaY = deltaMovement.y;
+            this.deltaZ = deltaMovement.z;
+            this.position = position;
+        }
+
+        public double getDeathTimeScale(LivingEntity entity) {
+            double deathTimeScale = 1.0 - entity.deathTime / (float) SHATTER_DEATH_TIME;
+            return deathTimeScale >= 1.0 ? 1.0 : 1.0 - Math.pow(2.0, -10.0 * deathTimeScale);
+        }
+
+        public void moveEntity(LivingEntity entity) {
+            entity.noPhysics = true;
+            double deathTimeScale = this.getDeathTimeScale(entity);
+//            ArmorQuickSwap.LOGGER.info("BEFORE: delta time scale {}, delta movement {}, position {}", deathTimeScale, deltaMovement, position);
+            Vec3 deltaMovement = entity.getDeltaMovement();
+            deltaMovement = new Vec3(Math.max(deltaX, deltaMovement.x), Math.max(0.0, Math.max(deltaY, deltaMovement.y)), Math.max(deltaZ, deltaMovement.z));
+            Vec3 scale = deltaMovement.multiply(0.4, 0.15, 0.4).scale(deathTimeScale);
+//            if (scale.y < 0.0)
+//            scale = new Vec3(scale.x, 0, scale.z);
+            entity.setPosRaw(this.position.x, this.position.y, this.position.z);
+            entity.move(MoverType.SELF, scale);
+            this.position = entity.position();
+//            deltaMovement = deltaMovement.scale(0.98);
+            this.deltaX = deltaMovement.x;
+            this.deltaY = deltaMovement.y;
+            this.deltaZ = deltaMovement.z;
+//            ArmorQuickSwap.LOGGER.info("AFTER: delta time scale {}, delta movement {}, position {}", deathTimeScale, deltaMovement, position);
+        }
+
+        public EntityInLevelCallback callback() {
+            return callback;
+        }
     }
 
     private static class RemovalReasonHoldingNullCallback implements EntityInLevelCallback, RemovalReasonHolder {
@@ -255,12 +331,8 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
         }
     }
 
-    private interface RemovalReasonHolder {
-
-        Entity.RemovalReason getRemovalReason();
-    }
-
-    private record ForwardingEntityInLevelCallback(EntityInLevelCallback callback, RemovalReasonHolder holder) implements EntityInLevelCallback {
+    private record ForwardingEntityInLevelCallback(EntityInLevelCallback callback,
+                                                   RemovalReasonHolder holder) implements EntityInLevelCallback {
 
         @Override
         public void onMove() {
