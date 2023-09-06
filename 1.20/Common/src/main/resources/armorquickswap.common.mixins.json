@@ -9,6 +9,10 @@
     "accessor.ArmorStandAccessor"
   ],
   "client": [
+    "client.accessor.AgeableListModelAccessor",
+    "client.accessor.EntityAccessor",
+    "client.accessor.LivingEntityRendererAccessor",
+    "client.accessor.ModelPartAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
