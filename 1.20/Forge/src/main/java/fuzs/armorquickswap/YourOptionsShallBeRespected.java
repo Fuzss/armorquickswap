@@ -1,6 +1,5 @@
 package fuzs.armorquickswap;
 
-import net.minecraftforge.fml.ModContainer;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.loading.FMLLoader;
 import net.minecraftforge.fml.loading.FMLPaths;
@@ -8,11 +7,8 @@ import net.minecraftforge.fml.loading.LoadingModList;
 import net.minecraftforge.fml.loading.ModSorter;
 import net.minecraftforge.fml.loading.moddiscovery.ModFile;
 import net.minecraftforge.fml.loading.moddiscovery.ModFileInfo;
-import net.minecraftforge.fml.loading.moddiscovery.ModInfo;
 import net.minecraftforge.fml.loading.moddiscovery.ModValidator;
-import net.minecraftforge.forgespi.language.ILifecycleEvent;
-import net.minecraftforge.forgespi.language.IModLanguageProvider;
-import net.minecraftforge.forgespi.language.ModFileScanData;
+import net.minecraftforge.forgespi.language.*;
 import net.minecraftforge.forgespi.locating.IModFile;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -29,6 +25,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class YourOptionsShallBeRespected implements IModLanguageProvider {
     public static final Logger LOGGER = LogManager.getLogger("YOSBR");
@@ -51,22 +48,17 @@ public class YourOptionsShallBeRespected implements IModLanguageProvider {
 
     private static boolean initialized;
 
-    private static String fileToLine(ModList modList, IModFile mf) {
+    private static String crashReport(Stream<IModFile> stream) {
+        return "\n"+stream.map(YourOptionsShallBeRespected::fileToLine).collect(Collectors.joining("\n\t\t", "\t\t", ""));
+    }
+
+    private static String fileToLine(IModFile mf) {
         return String.format(Locale.ENGLISH, "%-50.50s|%-30.30s|%-30.30s|%-20.20s|%-10.10s|Manifest: %s", mf.getFileName(),
                 mf.getModInfos().get(0).getDisplayName(),
                 mf.getModInfos().get(0).getModId(),
                 mf.getModInfos().get(0).getVersion(),
-                getModContainerState(modList, mf.getModInfos().get(0).getModId()),
+                "NONE",
                 ((ModFileInfo)mf.getModFileInfo()).getCodeSigningFingerprint().orElse("NOSIGNATURE"));
-    }
-
-    private static String getModContainerState(ModList modList, String modId) {
-        if (true) return "NONE";
-        return modList.getModContainerById(modId).map(ModContainer::getCurrentState).map(Object::toString).orElse("NONE");
-    }
-
-    private static String crashReport(ModList modList) {
-        return "\n"+modList.applyForEachModFile(iModFile -> fileToLine(modList, iModFile)).collect(Collectors.joining("\n\t\t", "\t\t", ""));
     }
 
     /**
@@ -87,11 +79,21 @@ public class YourOptionsShallBeRespected implements IModLanguageProvider {
             Field candidateModsField = ModValidator.class.getDeclaredField("candidateMods");
             candidateModsField.setAccessible(true);
             List<ModFile> candidateMods = (List<ModFile>) lookup.unreflectGetter(candidateModsField).invoke(modValidator);
-            LoadingModList loadingModList = ModSorter.sort(candidateMods, List.of());
-            loadingModList.addCoreMods();
-            loadingModList.addAccessTransformers();
-            ModList modList = ModList.of(loadingModList.getModFiles().stream().map(ModFileInfo::getFile).toList(), loadingModList.getMods());
-            LOGGER.info("Loading {} mods:" + crashReport(modList), loadingModList.getModFiles().size());
+
+            if (true) {
+
+                Stream<IModFile> stream = candidateMods.stream().map(ModFile::getModFileInfo).map(IModFileInfo::getFile);
+                LOGGER.info("Loading {} mods:" + crashReport(stream), candidateMods.size());
+
+            } else {
+
+            }
+            ModListPrinter.dumpModList(candidateMods.stream().map(ModFile::getModInfos).toList());
+//            LoadingModList loadingModList = ModSorter.sort(candidateMods, List.of());
+//            loadingModList.addCoreMods();
+//            loadingModList.addAccessTransformers();
+//            LOGGER.info("Loading {} mods:" + crashReport(loadingModList.getModFiles().stream().map(ModFileInfo::getFile)), loadingModList.getModFiles().size());
+
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
