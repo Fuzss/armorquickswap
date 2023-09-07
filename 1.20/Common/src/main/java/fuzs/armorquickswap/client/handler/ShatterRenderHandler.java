@@ -1,14 +1,17 @@
 package fuzs.armorquickswap.client.handler;
 
 import com.google.common.collect.MapMaker;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import fuzs.armorquickswap.client.helper.ClientEntityData;
+import fuzs.armorquickswap.mixin.client.accessor.AgeableListModelAccessor;
 import fuzs.armorquickswap.mixin.client.accessor.LivingEntityRendererAccessor;
 import fuzs.armorquickswap.mixin.client.accessor.ModelPartAccessor;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
+import net.minecraft.client.model.AgeableListModel;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
@@ -24,15 +27,13 @@ import net.minecraft.world.phys.Vec3;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class ShatterRenderHandler {
-    private static final Map<EntityModel<?>, Collection<ModelPart>> MODEL_PARTS_CACHE = new MapMaker().concurrencyLevel(1).weakKeys().makeMap();
+    private static final Map<EntityModel<?>, Map<Collection<ModelPart>, BabyModelData>> MODEL_PARTS_CACHE = new MapMaker().concurrencyLevel(1).weakKeys().makeMap();
 
     public static boolean containedInBlacklist(EntityType<?> entityType) {
         // TODO blacklist config option
@@ -63,11 +64,11 @@ public class ShatterRenderHandler {
         poseStack.mulPose(Axis.YP.rotationDegrees(entity.yBodyRotO));
 
         M model = renderer.getModel();
-        Collection<ModelPart> modelRootParts = MODEL_PARTS_CACHE.computeIfAbsent(model, ShatterRenderHandler::getModelRootParts);
+        Map<Collection<ModelPart>, BabyModelData> modelRootParts = MODEL_PARTS_CACHE.computeIfAbsent(model, ShatterRenderHandler::getModelRootParts);
         // store current poses for all model parts; a lot of models do not set every model property for the currently rendering entity,
         // meaning we are likely to change a value which is not going to be reset for the next actual entity render
         // all the original poses are restored at the end of our operation
-        Map<ModelPart, PartPose> storedPoses = modelRootParts.stream().collect(Collectors.toMap(Function.identity(), ModelPart::storePose));
+        Map<ModelPart, PartPose> storedPoses = modelRootParts.keySet().stream().flatMap(Collection::stream).collect(Collectors.toMap(Function.identity(), ModelPart::storePose));
 
         // we need to call these methods as they also handle things like model part visibility
         // we don't care about the rotations, those are reset directly afterward
@@ -78,11 +79,11 @@ public class ShatterRenderHandler {
 
         storedPoses.keySet().forEach(ModelPart::resetPose);
 
-        Collection<ModelPart> modelParts = explodeModelParts(modelRootParts);
+        Map<Collection<ModelPart>, BabyModelData> modelParts = modelRootParts.entrySet().stream().collect(Collectors.toMap(t -> ShatterRenderHandler.explodeModelParts(t.getKey()), Map.Entry::getValue, (o1, o2) -> o1, LinkedHashMap::new));
         RenderType renderType = RenderType.entityTranslucentCull(renderer.getTextureLocation(entity));
         // vanilla seems to stop rendering for very low alpha, so we cannot fade out properly
         float animationProgress = Mth.clamp((entity.deathTime + partialTick) / ShatterTickHandler.SHATTER_DEATH_TIME, 0.0F, 1.0F);
-        setupAndRenderModelParts(modelParts.toArray(ModelPart[]::new), entity, poseStack, multiBufferSource.getBuffer(renderType), packedLight, animationProgress);
+        setupAndRenderModelParts(modelParts, entity, poseStack, multiBufferSource.getBuffer(renderType), packedLight, animationProgress);
 
         // restore original poses for reasons mentioned above
         storedPoses.forEach(ModelPart::loadPose);
@@ -92,7 +93,7 @@ public class ShatterRenderHandler {
         return EventResult.INTERRUPT;
     }
 
-    private static Collection<ModelPart> getModelRootParts(EntityModel<?> model) {
+    private static Map<Collection<ModelPart>, BabyModelData> getModelRootParts(EntityModel<?> model) {
         Set<ModelPart> modelParts = Sets.newIdentityHashSet();
         Class<?> clazz = model.getClass();
         MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -112,7 +113,32 @@ public class ShatterRenderHandler {
             }
             clazz = clazz.getSuperclass();
         }
-        return modelParts.stream().flatMap(ModelPart::getAllParts).distinct().toList();
+        Map<Collection<ModelPart>, BabyModelData> allModelParts = Maps.newLinkedHashMap();
+        if (model instanceof AgeableListModel<?> ageableListModel) {
+            allModelParts.put(StreamSupport.stream(((AgeableListModelAccessor) model).armorquickswap$callHeadParts().spliterator(), false)
+                    .flatMap(ModelPart::getAllParts)
+                    .distinct()
+                    .collect(Collectors.toCollection(Sets::newIdentityHashSet)), new BabyModelData(ageableListModel));
+        }
+        allModelParts.put(modelParts.stream().flatMap(ModelPart::getAllParts).distinct().filter(t -> {
+            for (Collection<ModelPart> parts : allModelParts.keySet()) {
+                if (parts.contains(t)) return false;
+            }
+            return true;
+        }).collect(Collectors.toCollection(Sets::newIdentityHashSet)), BabyModelData.ZERO);
+        return allModelParts;
+    }
+
+    private record BabyModelData(boolean scaleHead, float babyYHeadOffset, float babyZHeadOffset, float babyHeadScale, float babyBodyScale, float bodyYOffset) {
+        public static final BabyModelData ZERO = new BabyModelData(false, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
+
+        public BabyModelData(AgeableListModel<?> model) {
+            this((AgeableListModelAccessor) model);
+        }
+
+        public BabyModelData(AgeableListModelAccessor accessor) {
+            this(accessor.armorquickswap$getScaleHead(), accessor.armorquickswap$getBabyYHeadOffset(), accessor.armorquickswap$getBabyZHeadOffset(), accessor.armorquickswap$getBabyHeadScale(), accessor.armorquickswap$getBabyBodyScale(), accessor.armorquickswap$getBodyYOffset());
+        }
     }
 
     private static Collection<ModelPart> explodeModelParts(Collection<ModelPart> parts) {
@@ -142,24 +168,58 @@ public class ShatterRenderHandler {
         }
     }
 
-    public static void setupAndRenderModelParts(ModelPart[] modelParts, LivingEntity entity, PoseStack poseStack, VertexConsumer vertexConsumer, int packedLight, float animationProgress) {
+    public static void setupAndRenderModelParts(Map<Collection<ModelPart>, BabyModelData> modelParts, LivingEntity entity, PoseStack poseStack, VertexConsumer vertexConsumer, int packedLight, float animationProgress) {
 
         Vec3 deltaMovement = ClientEntityData.getDeltaMovement(entity);
         float alpha = 1.0F - animationProgress;
         RandomSource random = entity.getRandom();
 
-        for (int i = 0; i < modelParts.length; i++) {
+        BabyModelData data = null;
 
-            poseStack.pushPose();
+        for (Map.Entry<Collection<ModelPart>, BabyModelData> entry : modelParts.entrySet()) {
 
-            random.setSeed((long) random.nextInt() * entity.getId() * i * 1000);
-            setupRotations(poseStack, animationProgress, deltaMovement, random);
+            if (entity.isBaby() && entry.getValue() != BabyModelData.ZERO) {
 
-            ModelPart modelPart = modelParts[i];
-            modelPart.translateAndRotate(poseStack);
-            ModelPartAccessor.class.cast(modelPart).armorquickswap$callCompile(poseStack.last(), vertexConsumer, packedLight, OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, alpha);
+                data = entry.getValue();
+            }
+            
+            if (data != null) {
 
-            poseStack.popPose();
+                poseStack.pushPose();
+                if (entry.getValue() != BabyModelData.ZERO) {
+
+                    if (data.scaleHead) {
+                        float scale = 1.5F / data.babyHeadScale;
+                        poseStack.scale(scale, scale, scale);
+                    }
+                    poseStack.translate(0.0F, data.babyYHeadOffset / 16.0F, data.babyZHeadOffset / 16.0F);
+                } else {
+
+                    float scale = 1.0F / data.babyBodyScale;
+                    poseStack.scale(scale, scale, scale);
+                    poseStack.translate(0.0F, data.bodyYOffset / 16.0F, 0.0F);
+                }
+            }
+            
+            ModelPart[] parts = entry.getKey().toArray(ModelPart[]::new);
+            for (int i = 0; i < parts.length; i++) {
+
+                poseStack.pushPose();
+
+                random.setSeed((long) random.nextInt() * entity.getId() * i * 1000);
+                setupRotations(poseStack, animationProgress, deltaMovement, random);
+
+                ModelPart modelPart = parts[i];
+                modelPart.translateAndRotate(poseStack);
+                ModelPartAccessor.class.cast(modelPart).armorquickswap$callCompile(poseStack.last(), vertexConsumer, packedLight, OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, alpha);
+
+                poseStack.popPose();
+            }
+
+            if (data != null) {
+
+                poseStack.popPose();
+            }
         }
     }
 
