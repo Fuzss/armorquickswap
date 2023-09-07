@@ -1,13 +1,14 @@
 package fuzs.armorquickswap.client;
 
-import fuzs.armorquickswap.client.handler.InventoryArmorClickHandler;
-import fuzs.armorquickswap.client.handler.LocalArmorStandGearHandler;
-import fuzs.armorquickswap.client.handler.ShatterRenderHandler;
-import fuzs.armorquickswap.client.handler.ShatterTickHandler;
+import fuzs.armorquickswap.client.handler.*;
+import fuzs.armorquickswap.client.init.BloodParticle;
+import fuzs.armorquickswap.client.init.ClientModRegistry;
 import fuzs.puzzleslib.api.client.core.v1.ClientModConstructor;
+import fuzs.puzzleslib.api.client.core.v1.context.ParticleProvidersContext;
 import fuzs.puzzleslib.api.client.event.v1.InteractionInputEvents;
 import fuzs.puzzleslib.api.client.event.v1.RenderLivingEvents;
 import fuzs.puzzleslib.api.client.event.v1.ScreenMouseEvents;
+import fuzs.puzzleslib.api.core.v1.context.AddReloadListenersContext;
 import fuzs.puzzleslib.api.event.v1.core.EventPhase;
 import fuzs.puzzleslib.api.event.v1.entity.living.LivingDeathCallback;
 import fuzs.puzzleslib.api.event.v1.entity.living.LivingEvents;
@@ -29,5 +30,17 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
         LivingDeathCallback.EVENT.register(ShatterTickHandler::onLivingDeath);
         LivingEvents.TICK.register(ShatterTickHandler::onLivingTick);
         RenderLivingEvents.BEFORE.register(ShatterRenderHandler::onBeforeRenderEntity);
+
+        LivingDeathCallback.EVENT.register(MobDismembermentHandler::onLivingDeath);
+    }
+
+    @Override
+    public void onRegisterParticleProviders(ParticleProvidersContext context) {
+        ClientParticleTypeManager.INSTANCE.register(ClientModRegistry.BLOOD_PARTICLE_TYPE, BloodParticle.Provider::new);
+    }
+
+    @Override
+    public void onRegisterResourcePackReloadListeners(AddReloadListenersContext context) {
+        ClientParticleTypeManager.INSTANCE.tryRegisterReloadListener(context::registerReloadListener);
     }
 }
