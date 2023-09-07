@@ -1,27 +1,19 @@
 package fuzs.armorquickswap.client.handler;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import com.google.common.collect.MapMaker;
 import com.google.common.collect.Sets;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import fuzs.armorquickswap.ArmorQuickSwap;
-import fuzs.armorquickswap.client.ClientEntityData;
-import fuzs.armorquickswap.mixin.client.accessor.AgeableListModelAccessor;
+import fuzs.armorquickswap.client.helper.ClientEntityData;
 import fuzs.armorquickswap.mixin.client.accessor.LivingEntityRendererAccessor;
 import fuzs.armorquickswap.mixin.client.accessor.ModelPartAccessor;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.AgeableListModel;
 import net.minecraft.client.model.EntityModel;
-import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
@@ -32,73 +24,25 @@ import net.minecraft.world.phys.Vec3;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ShatterRenderHandler {
-    private static final Set<EntityType<?>> SUPPORTED_ENTITY_TYPES = Sets.newIdentityHashSet();
-    private static final List<ModelSupport<?, ?>> SUPPORTED_MODELS;
+    private static final Map<EntityModel<?>, Collection<ModelPart>> MODEL_PARTS_CACHE = new MapMaker().concurrencyLevel(1).weakKeys().makeMap();
 
-    static {
-        // these are the most common model types in vanilla (or even all of them?)
-        // for supporting all sorts of mobs from other mods a reflection based approach would be required
-        SUPPORTED_MODELS = List.of(new ModelSupport<>(HierarchicalModel.class, model -> {
-            return List.of(model.root());
-        }), new ModelSupport<>(AgeableListModel.class, model -> {
-            Iterable<ModelPart> bodyParts = ((AgeableListModelAccessor) model).armorquickswap$callBodyParts();
-            Iterable<ModelPart> headParts = ((AgeableListModelAccessor) model).armorquickswap$callHeadParts();
-            return ImmutableList.copyOf(Iterables.concat(bodyParts, headParts));
-        }));
-    }
-
-    private static Collection<ModelPart> getModelRootParts(EntityModel<?> model) {
-        Set<ModelPart> modelParts = Sets.newIdentityHashSet();
-        Class<?> clazz = model.getClass();
-        MethodHandles.Lookup lookup = MethodHandles.lookup();
-        while (clazz != EntityModel.class) {
-            try {
-                for (Field field : clazz.getDeclaredFields()) {
-                    if (field.getType() == ModelPart.class) {
-                        field.setAccessible(true);
-                        modelParts.add((ModelPart) lookup.unreflectGetter(field).invoke(model));
-                    }
-                }
-            } catch (Throwable e) {
-                throw new RuntimeException(e);
-            }
-            clazz = clazz.getSuperclass();
-        }
-        return modelParts;
-//        return modelParts.stream().flatMap(ModelPart::getAllParts).distinct().toList();
-
-//        return SUPPORTED_MODELS.stream().filter(t -> t.supportsModel(model)).map(t -> t.tryApplyExtractor(model)).findAny().orElseThrow();
-    }
-
-    public static boolean supportsEntityType(EntityType<?> entityType) {
-        return true || SUPPORTED_ENTITY_TYPES.contains(entityType);
-    }
-
-    public static void onResourceManagerReload() {
-        Minecraft minecraft = Minecraft.getInstance();
-        minecraft.getEntityRenderDispatcher().renderers.forEach((EntityType<?> entityType, EntityRenderer<?> entityRenderer) -> {
-            if (entityRenderer instanceof LivingEntityRenderer<?, ?> renderer) {
-                if (SUPPORTED_MODELS.stream().anyMatch(t -> t.supportsModel(renderer.getModel()))) {
-                    SUPPORTED_ENTITY_TYPES.add(entityType);
-                } else {
-                    ArmorQuickSwap.LOGGER.info("unsupported mob {}", entityType);
-                }
-            }
-        });
+    public static boolean containedInBlacklist(EntityType<?> entityType) {
+        // TODO blacklist config option
+        return false;
     }
 
     @SuppressWarnings("unchecked")
     public static <T extends LivingEntity, M extends EntityModel<T>> EventResult onBeforeRenderEntity(T entity, LivingEntityRenderer<T, M> renderer, float partialTick, PoseStack poseStack, MultiBufferSource multiBufferSource, int packedLight) {
 
-        if (!entity.isDeadOrDying() || !ShatterRenderHandler.supportsEntityType(entity.getType())) {
+        if (!entity.isDeadOrDying() || ShatterRenderHandler.containedInBlacklist(entity.getType())) {
             return EventResult.PASS;
         }
 
@@ -116,20 +60,29 @@ public class ShatterRenderHandler {
         poseStack.scale(-1.0F, -1.0F, 1.0F);
         ((LivingEntityRendererAccessor<T, M>) renderer).armorquickswap$callScale(entity, poseStack, partialTick);
         poseStack.translate(0F, -1.501F, 0F);
-        // do not lerp this as it is no longer being ticked
-        poseStack.mulPose(Axis.YP.rotationDegrees(entity.yBodyRot));
+        poseStack.mulPose(Axis.YP.rotationDegrees(entity.yBodyRotO));
 
-        Collection<ModelPart> modelRootParts = getModelRootParts(renderer.getModel());
+        M model = renderer.getModel();
+        Collection<ModelPart> modelRootParts = MODEL_PARTS_CACHE.computeIfAbsent(model, ShatterRenderHandler::getModelRootParts);
         // store current poses for all model parts; a lot of models do not set every model property for the currently rendering entity,
         // meaning we are likely to change a value which is not going to be reset for the next actual entity render
         // all the original poses are restored at the end of our operation
-        Map<ModelPart, PartPose> storedPoses = modelRootParts.stream().flatMap(ModelPart::getAllParts).distinct().collect(Collectors.toMap(Function.identity(), ModelPart::storePose));
+        Map<ModelPart, PartPose> storedPoses = modelRootParts.stream().collect(Collectors.toMap(Function.identity(), ModelPart::storePose));
+
+        // we need to call these methods as they also handle things like model part visibility
+        // we don't care about the rotations, those are reset directly afterward
+        float yRotDiff = entity.yHeadRotO - entity.yBodyRotO;
+        float bob = ((LivingEntityRendererAccessor<T, M>) renderer).armorquickswap$callGetBob(entity, partialTick);
+        model.prepareMobModel(entity, 0.0F, 0.0F, partialTick);
+        model.setupAnim(entity, 0.0F, 0.0F, bob, yRotDiff, entity.xRotO);
+
         storedPoses.keySet().forEach(ModelPart::resetPose);
 
-        List<ModelPart> modelParts = explodeModelParts(modelRootParts);
+        Collection<ModelPart> modelParts = explodeModelParts(modelRootParts);
         RenderType renderType = RenderType.entityTranslucentCull(renderer.getTextureLocation(entity));
+        // vanilla seems to stop rendering for very low alpha, so we cannot fade out properly
         float animationProgress = Mth.clamp((entity.deathTime + partialTick) / ShatterTickHandler.SHATTER_DEATH_TIME, 0.0F, 1.0F);
-        setupAndRenderModelParts(modelParts, entity, poseStack, multiBufferSource.getBuffer(renderType), packedLight, animationProgress);
+        setupAndRenderModelParts(modelParts.toArray(ModelPart[]::new), entity, poseStack, multiBufferSource.getBuffer(renderType), packedLight, animationProgress);
 
         // restore original poses for reasons mentioned above
         storedPoses.forEach(ModelPart::loadPose);
@@ -139,18 +92,44 @@ public class ShatterRenderHandler {
         return EventResult.INTERRUPT;
     }
 
-    private static List<ModelPart> explodeModelParts(Collection<ModelPart> parts) {
+    private static Collection<ModelPart> getModelRootParts(EntityModel<?> model) {
+        Set<ModelPart> modelParts = Sets.newIdentityHashSet();
+        Class<?> clazz = model.getClass();
+        MethodHandles.Lookup lookup = MethodHandles.lookup();
+        while (clazz != EntityModel.class) {
+            try {
+                for (Field field : clazz.getDeclaredFields()) {
+                    if (field.getType() == ModelPart.class) {
+                        field.setAccessible(true);
+                        modelParts.add((ModelPart) lookup.unreflectGetter(field).invoke(model));
+                    } else if (field.getType() == ModelPart[].class) {
+                        field.setAccessible(true);
+                        modelParts.addAll(Arrays.asList((ModelPart[]) lookup.unreflectGetter(field).invoke(model)));
+                    }
+                }
+            } catch (Throwable e) {
+                throw new RuntimeException(e);
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return modelParts.stream().flatMap(ModelPart::getAllParts).distinct().toList();
+    }
 
-        List<ModelPart> modelParts = Lists.newArrayList();
+    private static Collection<ModelPart> explodeModelParts(Collection<ModelPart> parts) {
+
+        // it is important that parents generally come before children,
+        // which should work fine by using identity set since the order is related to the initialization order of the instances (?)
+        // ...well at least it does work in-game and this seems a valid reason why it does haha
+        Set<ModelPart> modelParts = Sets.newIdentityHashSet();
         parts.forEach(part -> explodeModelPartAndChildren(part, modelParts));
         modelParts.forEach(modelPart -> modelPart.yRot -= 12.0);
 
         return modelParts;
     }
 
-    private static void explodeModelPartAndChildren(ModelPart modelPart, List<ModelPart> modelParts) {
+    private static void explodeModelPartAndChildren(ModelPart modelPart, Collection<ModelPart> modelParts) {
 
-        modelParts.add(modelPart);
+        if (!modelPart.visible || !modelParts.add(modelPart)) return;
 
         for (ModelPart child : ModelPartAccessor.class.cast(modelPart).armorquickswap$getChildren().values()) {
             child.x += modelPart.x;
@@ -163,20 +142,20 @@ public class ShatterRenderHandler {
         }
     }
 
-    public static void setupAndRenderModelParts(List<ModelPart> modelParts, LivingEntity entity, PoseStack poseStack, VertexConsumer vertexConsumer, int packedLight, float animationProgress) {
+    public static void setupAndRenderModelParts(ModelPart[] modelParts, LivingEntity entity, PoseStack poseStack, VertexConsumer vertexConsumer, int packedLight, float animationProgress) {
 
         Vec3 deltaMovement = ClientEntityData.getDeltaMovement(entity);
         float alpha = 1.0F - animationProgress;
         RandomSource random = entity.getRandom();
 
-        for (int i = 0; i < modelParts.size(); i++) {
+        for (int i = 0; i < modelParts.length; i++) {
 
             poseStack.pushPose();
 
             random.setSeed((long) random.nextInt() * entity.getId() * i * 1000);
             setupRotations(poseStack, animationProgress, deltaMovement, random);
 
-            ModelPart modelPart = modelParts.get(i);
+            ModelPart modelPart = modelParts[i];
             modelPart.translateAndRotate(poseStack);
             ModelPartAccessor.class.cast(modelPart).armorquickswap$callCompile(poseStack.last(), vertexConsumer, packedLight, OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, alpha);
 
@@ -198,20 +177,5 @@ public class ShatterRenderHandler {
         poseStack.mulPose(Axis.YP.rotationDegrees(rotationBase * rotationY));
         float rotationZ = random.nextFloat() * (random.nextBoolean() ? -1.0F : 1.0F) * animationProgress;
         poseStack.mulPose(Axis.ZP.rotationDegrees(rotationBase * rotationZ));
-    }
-
-    private record ModelSupport<T extends LivingEntity, M extends EntityModel<T>>(Class<M> clazz,
-                                                                                  Function<M, List<ModelPart>> extractor) {
-
-        public boolean supportsModel(EntityModel<?> model) {
-            return this.clazz.isInstance(model);
-        }
-
-        public List<ModelPart> tryApplyExtractor(EntityModel<?> model) {
-            if (this.supportsModel(model)) {
-                return this.extractor.apply(this.clazz.cast(model));
-            }
-            throw new IllegalArgumentException("Unsupported model type: " + model.getClass());
-        }
     }
 }

@@ -8,12 +8,10 @@ import fuzs.puzzleslib.api.client.core.v1.ClientModConstructor;
 import fuzs.puzzleslib.api.client.event.v1.InteractionInputEvents;
 import fuzs.puzzleslib.api.client.event.v1.RenderLivingEvents;
 import fuzs.puzzleslib.api.client.event.v1.ScreenMouseEvents;
-import fuzs.puzzleslib.api.core.v1.context.AddReloadListenersContext;
 import fuzs.puzzleslib.api.event.v1.core.EventPhase;
 import fuzs.puzzleslib.api.event.v1.entity.living.LivingDeathCallback;
 import fuzs.puzzleslib.api.event.v1.entity.living.LivingEvents;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.util.Unit;
 
 public class ArmorQuickSwapClient implements ClientModConstructor {
 
@@ -31,12 +29,5 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
         LivingDeathCallback.EVENT.register(ShatterTickHandler::onLivingDeath);
         LivingEvents.TICK.register(ShatterTickHandler::onLivingTick);
         RenderLivingEvents.BEFORE.register(ShatterRenderHandler::onBeforeRenderEntity);
-    }
-
-    @Override
-    public void onRegisterResourcePackReloadListeners(AddReloadListenersContext context) {
-        context.registerReloadListener("gather_supported_entity_types", (preparationBarrier, resourceManager, preparationsProfiler, reloadProfiler, backgroundExecutor, gameExecutor) -> {
-            return preparationBarrier.wait(Unit.INSTANCE).thenRunAsync(ShatterRenderHandler::onResourceManagerReload, gameExecutor);
-        });
     }
 }

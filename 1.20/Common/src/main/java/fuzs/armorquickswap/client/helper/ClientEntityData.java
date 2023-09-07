@@ -1,4 +1,4 @@
-package fuzs.armorquickswap.client;
+package fuzs.armorquickswap.client.helper;
 
 import com.google.common.collect.MapMaker;
 import fuzs.armorquickswap.client.handler.ShatterTickHandler;
