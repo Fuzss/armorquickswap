@@ -27,16 +27,16 @@ public class BloodParticle extends TextureSheetParticle {
         this.xo = this.x;
         this.yo = this.y;
         this.zo = this.z;
-        if (this.xd != 0.0D && this.zd != 0.0D && !this.onGround) {
+        if (this.xd != 0.0 && this.zd != 0.0 && !this.onGround) {
             this.yd -= this.gravity;
             this.move(this.xd, this.yd, this.zd);
-            this.xd *= 0.98000001907348633D;
-            this.yd *= 0.98000001907348633D;
-            this.zd *= 0.98000001907348633D;
+            this.xd *= 0.98;
+            this.yd *= 0.98;
+            this.zd *= 0.98;
             if (this.onGround) {
-                this.xd *= 0.69999998807907104D;
-                this.zd *= 0.69999998807907104D;
-                this.y += 0.2D;
+                this.xd *= 0.7;
+                this.zd *= 0.7;
+                this.y += 0.2;
             }
         }
     }

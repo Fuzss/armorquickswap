@@ -8,7 +8,7 @@ import fuzs.puzzleslib.api.client.core.v1.context.ParticleProvidersContext;
 import fuzs.puzzleslib.api.client.event.v1.InteractionInputEvents;
 import fuzs.puzzleslib.api.client.event.v1.RenderLivingEvents;
 import fuzs.puzzleslib.api.client.event.v1.ScreenMouseEvents;
-import fuzs.puzzleslib.api.core.v1.context.AddReloadListenersContext;
+import fuzs.puzzleslib.api.core.v1.ContentRegistrationFlags;
 import fuzs.puzzleslib.api.event.v1.core.EventPhase;
 import fuzs.puzzleslib.api.event.v1.entity.living.LivingDeathCallback;
 import fuzs.puzzleslib.api.event.v1.entity.living.LivingEvents;
@@ -36,11 +36,11 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
 
     @Override
     public void onRegisterParticleProviders(ParticleProvidersContext context) {
-        ClientParticleTypeManager.INSTANCE.register(ClientModRegistry.BLOOD_PARTICLE_TYPE, BloodParticle.Provider::new);
+        context.registerClientParticleProvider(ClientModRegistry.BLOOD_PARTICLE_TYPE, BloodParticle.Provider::new);
     }
 
     @Override
-    public void onRegisterResourcePackReloadListeners(AddReloadListenersContext context) {
-        ClientParticleTypeManager.INSTANCE.tryRegisterReloadListener(context::registerReloadListener);
+    public ContentRegistrationFlags[] getContentRegistrationFlags() {
+        return new ContentRegistrationFlags[]{ContentRegistrationFlags.CLIENT_PARTICLE_TYPES};
     }
 }

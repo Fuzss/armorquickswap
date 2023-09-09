@@ -1,7 +1,7 @@
 package fuzs.armorquickswap.client.handler;
 
-import fuzs.armorquickswap.client.ClientParticleTypeManager;
 import fuzs.armorquickswap.client.init.ClientModRegistry;
+import fuzs.puzzleslib.api.client.particle.v1.ClientParticleTypes;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
@@ -49,7 +49,7 @@ public class MobDismembermentHandler {
 
             Vec3 deltaMovement = entity.getDeltaMovement();
             if (entity.getMobType() != MobType.UNDEAD || entity instanceof Zombie) {
-                Particle particle = ClientParticleTypeManager.INSTANCE.createParticle(ClientModRegistry.BLOOD_PARTICLE_TYPE, entity.getX(), entity.getY() + 0.5D + (entity.getRandom().nextDouble() * 0.7D), entity.getZ(), deltaMovement.x + motionX, deltaMovement.y + motionY, deltaMovement.z + motionZ);
+                Particle particle = ClientParticleTypes.INSTANCE.createParticle(ClientModRegistry.BLOOD_PARTICLE_TYPE, entity.getX(), entity.getY() + 0.5D + (entity.getRandom().nextDouble() * 0.7D), entity.getZ(), deltaMovement.x + motionX, deltaMovement.y + motionY, deltaMovement.z + motionZ);
                 if (particle != null && entity instanceof Zombie) {
                     particle.setColor(1.0F, 1.0F, 0.0F);
                 }
