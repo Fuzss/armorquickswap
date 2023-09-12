@@ -6,6 +6,7 @@
   "refmap": "armorquickswap.refmap.json",
   "plugin": "fuzs.armorquickswap.mixin.ModMixinConfigPlugin",
   "mixins": [
+    "StonecutterMenuMixin",
     "accessor.ArmorStandAccessor"
   ],
   "client": [
