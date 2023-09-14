@@ -3,15 +3,19 @@ package fuzs.armorquickswap;
 import com.google.common.collect.Lists;
 import fuzs.armorquickswap.handler.ArmorStandGearHandler;
 import fuzs.armorquickswap.mixin.accessor.OreConfigurationAccessor;
-import fuzs.puzzleslib.api.biome.v1.BiomeLoadingPhase;
+import fuzs.armorquickswap.server.packs.DynamicPackResources;
+import fuzs.armorquickswap.server.packs.ModRecipeProvider;
 import fuzs.puzzleslib.api.core.v1.ContentRegistrationFlags;
 import fuzs.puzzleslib.api.core.v1.ModConstructor;
-import fuzs.puzzleslib.api.core.v1.context.BiomeModificationsContext;
+import fuzs.puzzleslib.api.core.v1.context.PackRepositorySourcesContext;
 import fuzs.puzzleslib.api.event.v1.core.EventPhase;
 import fuzs.puzzleslib.api.event.v1.entity.player.PlayerInteractEvents;
 import fuzs.puzzleslib.api.event.v1.server.ServerLifecycleEvents;
+import fuzs.puzzleslib.api.resources.v1.PackResourcesHelper;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
@@ -60,13 +64,8 @@ public class ArmorQuickSwap implements ModConstructor {
     }
 
     @Override
-    public void onRegisterBiomeModifications(BiomeModificationsContext context) {
-        context.register(BiomeLoadingPhase.POST_PROCESSING, biomeLoadingContext -> {
-            LOGGER.info("processing biome {}", biomeLoadingContext.getResourceKey().location());
-            return true;
-        }, context1 -> {
-
-        });
+    public void onAddDataPackFinders(PackRepositorySourcesContext context) {
+        context.addRepositorySource(PackResourcesHelper.buildServerPack(DynamicPackResources.create(List.of(ModRecipeProvider::new)), "woodcutting_recipes", Component.literal(MOD_NAME), CommonComponents.EMPTY, true, false));
     }
 
     @Override
