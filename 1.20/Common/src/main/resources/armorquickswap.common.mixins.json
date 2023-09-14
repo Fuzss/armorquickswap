@@ -6,10 +6,13 @@
   "refmap": "armorquickswap.refmap.json",
   "plugin": "fuzs.armorquickswap.mixin.ModMixinConfigPlugin",
   "mixins": [
+    "StonecutterBlockMixin",
     "StonecutterMenuMixin",
-    "accessor.ArmorStandAccessor"
+    "accessor.ArmorStandAccessor",
+    "accessor.OreConfigurationAccessor"
   ],
   "client": [
+    "client.StonecutterScreenMixin",
     "client.accessor.AgeableListModelAccessor",
     "client.accessor.EntityAccessor",
     "client.accessor.LivingEntityRendererAccessor",

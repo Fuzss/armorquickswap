@@ -3,11 +3,14 @@ package fuzs.armorquickswap.mixin;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,6 +27,9 @@ import java.util.List;
 abstract class StonecutterMenuMixin extends AbstractContainerMenu {
     @Shadow
     @Final
+    private Level level;
+    @Shadow
+    @Final
     private DataSlot selectedRecipeIndex;
     @Shadow
     private ItemStack input;
@@ -31,11 +37,15 @@ abstract class StonecutterMenuMixin extends AbstractContainerMenu {
     long lastSoundTime;
     @Shadow
     @Final
+    @Mutable
     Slot inputSlot;
     @Shadow
     @Final
     @Mutable
     Slot resultSlot;
+    @Shadow
+    @Final
+    public Container container;
     @Shadow
     @Final
     ResultContainer resultContainer;
@@ -50,20 +60,33 @@ abstract class StonecutterMenuMixin extends AbstractContainerMenu {
 
     @Inject(method = "<init>(ILnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/world/inventory/ContainerLevelAccess;)V", at = @At("TAIL"))
     public void init(int containerId, Inventory playerInventory, final ContainerLevelAccess access, CallbackInfo callback) {
-        int index = this.resultSlot.index;
-        this.resultSlot = new Slot(this.resultContainer, 1, 143, 33) {
+        int index = this.inputSlot.index;
+        this.inputSlot = new Slot(this.container, 0, 13, 19) {
+
+            @Override
+            public boolean mayPlace(ItemStack stack) {
+                return StonecutterMenuMixin.this.level.getRecipeManager().getRecipeFor(RecipeType.STONECUTTING, new SimpleContainer(stack), StonecutterMenuMixin.this.level).isPresent();
+            }
+        };
+        this.inputSlot.index = index;
+        this.slots.set(index, this.inputSlot);
+        index = this.resultSlot.index;
+        this.resultSlot = new Slot(this.resultContainer, 1, 13, 49) {
+
+            @Override
             public boolean mayPlace(ItemStack stack) {
                 return false;
             }
 
+            @Override
             public void onTake(Player player, ItemStack stack) {
                 stack.onCraftedBy(player.level(), player, stack.getCount());
                 ItemStack itemStack = StonecutterMenuMixin.this.inputSlot.getItem();
-                for (int i = 0, k = slots.size(); i < k; i++) {
+                for (int i = 0, k = StonecutterMenuMixin.this.slots.size(); i < k; i++) {
                     int j = (i + 2) % k;
-                    if (ItemStack.isSameItem(slots.get(j).getItem(), itemStack)) {
-                        StonecutterMenuMixin.this.resultContainer.awardUsedRecipes(player, List.of(slots.get(j).getItem()));
-                        slots.get(j).remove(1);
+                    if (ItemStack.isSameItem(StonecutterMenuMixin.this.slots.get(j).getItem(), itemStack)) {
+                        StonecutterMenuMixin.this.resultContainer.awardUsedRecipes(player, List.of(StonecutterMenuMixin.this.slots.get(j).getItem()));
+                        StonecutterMenuMixin.this.slots.get(j).remove(1);
                         break;
                     }
                 }
