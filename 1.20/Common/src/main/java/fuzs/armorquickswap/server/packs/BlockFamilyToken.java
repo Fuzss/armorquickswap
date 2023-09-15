@@ -7,16 +7,18 @@ import net.minecraft.world.level.material.PushReaction;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public record BlockFamilyToken(Class<? extends Block> clazz, String prefix, String postfix, String regex) {
     public static final BlockFamilyToken PLANKS = of("_planks");
-    public static final BlockFamilyToken LOG = of(RotatedPillarBlock.class, "_log");
-    public static final BlockFamilyToken WOOD = of(RotatedPillarBlock.class, "_wood");
-    public static final BlockFamilyToken STRIPPED_LOG = of(RotatedPillarBlock.class, "stripped_", "_log");
-    public static final BlockFamilyToken STRIPPED_WOOD = of(RotatedPillarBlock.class, "stripped_", "_wood");
+    public static final BlockFamilyToken LOG = of(RotatedPillarBlock.class, List.of(), List.of("_log", "_stem"));
+    public static final BlockFamilyToken WOOD = of(RotatedPillarBlock.class, List.of(), List.of("_wood", "_hyphae"));
+    public static final BlockFamilyToken STRIPPED_LOG = of(RotatedPillarBlock.class, List.of("stripped_"), List.of("_log", "_stem"));
+    public static final BlockFamilyToken STRIPPED_WOOD = of(RotatedPillarBlock.class, List.of("stripped_"), List.of("_wood", "_hyphae"));
     public static final BlockFamilyToken SIGN = of(StandingSignBlock.class, "_sign");
     public static final BlockFamilyToken HANGING_SIGN = of(CeilingHangingSignBlock.class, "_hanging_sign");
     public static final BlockFamilyToken PRESSURE_PLATE = of(PressurePlateBlock.class, "_pressure_plate");
@@ -27,14 +29,16 @@ public record BlockFamilyToken(Class<? extends Block> clazz, String prefix, Stri
     public static final BlockFamilyToken FENCE_GATE = of(FenceGateBlock.class, "_fence_gate");
     public static final BlockFamilyToken FENCE = of(FenceBlock.class, "_fence");
     public static final BlockFamilyToken DOOR = of(DoorBlock.class, "_door");
-    public static final Collection<BlockFamilyToken> WOOD_FAMILY = Stream.of(PLANKS, LOG, WOOD, STRIPPED_LOG, STRIPPED_WOOD, SIGN, HANGING_SIGN, PRESSURE_PLATE, TRAPDOOR, STAIRS, BUTTON, SLAB, FENCE_GATE, FENCE, DOOR).sorted(Comparator.comparing(t -> t.prefix.isEmpty())).toList();
+    public static final Collection<BlockFamilyToken> WOOD_FAMILY = Stream.of(PLANKS, LOG, WOOD, STRIPPED_LOG, STRIPPED_WOOD, SIGN, HANGING_SIGN, PRESSURE_PLATE, TRAPDOOR, STAIRS, BUTTON, SLAB, FENCE_GATE, FENCE, DOOR)
+            .sorted(Comparator.<BlockFamilyToken>comparingInt(t -> t.prefix.length()).reversed())
+            .toList();
 
     public static BlockFamilyToken of(String postfix) {
         return of(Block.class, postfix);
     }
 
     public static BlockFamilyToken of(Class<? extends Block> clazz, String postfix) {
-        return of(clazz, "", postfix);
+        return of(clazz, List.of(), List.of(postfix));
     }
 
     public static BlockFamilyToken of(String prefix, String postfix) {
@@ -42,6 +46,12 @@ public record BlockFamilyToken(Class<? extends Block> clazz, String prefix, Stri
     }
 
     public static BlockFamilyToken of(Class<? extends Block> clazz, String prefix, String postfix) {
+        return of(clazz, List.of(prefix), List.of(postfix));
+    }
+
+    public static BlockFamilyToken of(Class<? extends Block> clazz, List<String> prefixList, List<String> postfixList) {
+        String prefix = prefixList.stream().collect(Collectors.joining("|", "(?:", ")"));
+        String postfix = postfixList.stream().collect(Collectors.joining("|", "(?:", ")"));
         return new BlockFamilyToken(clazz, prefix, postfix, "^" + prefix + "[a-z0-9/._-]+" + postfix + "$");
     }
 

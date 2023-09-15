@@ -10,6 +10,7 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeProvider;
 import net.minecraft.data.recipes.SingleItemRecipeBuilder;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.block.Block;
@@ -51,23 +52,21 @@ public class ModRecipeProvider extends RecipeProvider {
     public void buildRecipes(Consumer<FinishedRecipe> writer) {
         for (Map<BlockFamilyToken, Block> tokens : this.blocks) {
             for (BlockFamilyRecipe recipe : BlockFamilyRecipe.values()) {
-                if (recipe.isPresent(tokens.keySet())) {
-                    recipe.apply(tokens::get, (ingredient, result, resultCount) -> stonecutterResultFromBase(writer, RecipeCategory.BUILDING_BLOCKS, result, ingredient, resultCount));
-                }
+                recipe.apply(tokens::get, (ingredient, result, resultCount) -> stonecutterResultFromBase(writer, RecipeCategory.BUILDING_BLOCKS, result, ingredient, resultCount));
             }
         }
     }
 
-    public static void stonecutterResultFromBase(Consumer<FinishedRecipe> pFinishedRecipeConsumer, RecipeCategory category, ItemLike pResult, ItemLike pMaterial) {
-        stonecutterResultFromBase(pFinishedRecipeConsumer, category, pResult, pMaterial, 1);
+    public static void stonecutterResultFromBase(Consumer<FinishedRecipe> exporter, RecipeCategory category, ItemLike result, ItemLike ingredient) {
+        stonecutterResultFromBase(exporter, category, result, ingredient, 1);
     }
 
-    public static void stonecutterResultFromBase(Consumer<FinishedRecipe> pFinishedRecipeConsumer, RecipeCategory category, ItemLike pResult, ItemLike pMaterial, int pResultCount) {
-        String recipeId = getConversionRecipeName(pResult, pMaterial) + "_stonecutting";
-        SingleItemRecipeBuilder.stonecutting(Ingredient.of(pMaterial), category, pResult, pResultCount).unlockedBy(getHasName(pMaterial), has(pMaterial)).save(pFinishedRecipeConsumer, ArmorQuickSwap.id(recipeId));
+    public static void stonecutterResultFromBase(Consumer<FinishedRecipe> exporter, RecipeCategory category, ItemLike result, ItemLike ingredient, int resultCount) {
+        String recipeId = getConversionRecipeName(result, ingredient) + "_stonecutting";
+        SingleItemRecipeBuilder.stonecutting(Ingredient.of(ingredient), category, result, resultCount).unlockedBy(getHasName(ingredient), has(ingredient)).save(exporter, ArmorQuickSwap.id(recipeId));
     }
 
-    private record BlockFamilyRecipe(BlockFamilyToken ingredient, BlockFamilyToken result, int resultCount) {
+    private record BlockFamilyRecipe(Function<Function<BlockFamilyToken, ItemLike>, ItemLike> ingredient, Function<Function<BlockFamilyToken, ItemLike>, ItemLike> result, int resultCount) {
         private static final Collection<BlockFamilyRecipe> VALUES = Lists.newArrayList();
 
         static {
@@ -98,6 +97,9 @@ public class ModRecipeProvider extends RecipeProvider {
             register(ingredient, BlockFamilyToken.FENCE_GATE, resultCount);
             register(ingredient, BlockFamilyToken.FENCE, resultCount);
             register(ingredient, BlockFamilyToken.DOOR, resultCount);
+            register(ingredient, Items.LADDER, resultCount);
+            register(ingredient, Items.BOWL, resultCount);
+            register(ingredient, Items.STICK, resultCount * 2);
         }
 
         private static void register(BlockFamilyToken ingredient, BlockFamilyToken result) {
@@ -105,24 +107,28 @@ public class ModRecipeProvider extends RecipeProvider {
         }
 
         private static void register(BlockFamilyToken ingredient, BlockFamilyToken result, int resultCount) {
-            VALUES.add(new BlockFamilyRecipe(ingredient, result, resultCount));
+            VALUES.add(new BlockFamilyRecipe(access -> access.apply(ingredient), access -> access.apply(result), resultCount));
+        }
+
+        private static void register(BlockFamilyToken ingredient, ItemLike result, int resultCount) {
+            VALUES.add(new BlockFamilyRecipe(access -> access.apply(ingredient), access -> result, resultCount));
         }
 
         public static Collection<BlockFamilyRecipe> values() {
             return Collections.unmodifiableCollection(VALUES);
         }
 
-        public boolean isPresent(Collection<BlockFamilyToken> tokens) {
-            return tokens.contains(this.ingredient) && tokens.contains(this.result);
-        }
-
-        public void apply(Function<BlockFamilyToken, Block> access, StonecutterRecipeFactory factory) {
-            factory.apply(access.apply(this.ingredient), access.apply(this.result), this.resultCount);
+        public void apply(Function<BlockFamilyToken, ItemLike> access, StonecutterRecipeFactory factory) {
+            ItemLike ingredient = this.ingredient.apply(access);
+            ItemLike result = this.result.apply(access);
+            if (ingredient != null && result != null) {
+                factory.apply(ingredient, result, this.resultCount);
+            }
         }
     }
 
     private interface StonecutterRecipeFactory {
 
-        void apply(Block ingredient, Block result, int resultCount);
+        void apply(ItemLike ingredient, ItemLike result, int resultCount);
     }
 }

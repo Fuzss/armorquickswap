@@ -40,7 +40,7 @@ public class DynamicPackResources extends AbstractModPackResources {
 
     private static Map<PackType, Map<ResourceLocation, IoSupplier<InputStream>>> generatePathsFromProviders(Collection<Function<PackOutput, DataProvider>> providers) {
         PackOutput packOutput = new PackOutput(Path.of(""));
-        Map<PackType, Map<ResourceLocation, IoSupplier<InputStream>>> map = Stream.of(PackType.values()).collect(Collectors.toMap(Function.identity(), $ -> Maps.newTreeMap()));
+        Map<PackType, Map<ResourceLocation, IoSupplier<InputStream>>> packTypes = Stream.of(PackType.values()).collect(Collectors.toMap(Function.identity(), $ -> Maps.newTreeMap()));
         try {
             for (Function<PackOutput, DataProvider> provider : providers) {
                 provider.apply(packOutput).run((Path filePath, byte[] data, HashCode hashCode) -> {
@@ -50,7 +50,7 @@ public class DynamicPackResources extends AbstractModPackResources {
                         String path = strings.stream().skip(2).collect(Collectors.joining("/"));
                         ResourceLocation resourceLocation = ResourceLocation.tryBuild(strings.get(1), path);
                         if (resourceLocation != null) {
-                            map.get(packType).put(resourceLocation, () -> new ByteArrayInputStream(data));
+                            packTypes.get(packType).put(resourceLocation, () -> new ByteArrayInputStream(data));
                         }
                     }
                 }).get();
@@ -59,10 +59,10 @@ public class DynamicPackResources extends AbstractModPackResources {
             ArmorQuickSwap.LOGGER.warn("Unable to construct dynamic pack resources", e);
             return Map.of();
         }
-        map.replaceAll((packType, resourceLocationIoSupplierMap) -> {
-            return ImmutableMap.copyOf(resourceLocationIoSupplierMap);
+        packTypes.replaceAll((packType, map) -> {
+            return ImmutableMap.copyOf(map);
         });
-        return Maps.immutableEnumMap(map);
+        return Maps.immutableEnumMap(packTypes);
     }
 
     @Nullable

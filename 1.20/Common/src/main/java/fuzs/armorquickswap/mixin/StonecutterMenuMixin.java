@@ -110,6 +110,18 @@ abstract class StonecutterMenuMixin extends AbstractContainerMenu {
         this.slots.set(index, this.resultSlot);
     }
 
+    @Inject(method = "clickMenuButton", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/inventory/StonecutterMenu;setupResultSlot()V", shift = At.Shift.AFTER), cancellable = true)
+    public void clickMenuButton$0(Player player, int id, CallbackInfoReturnable<Boolean> callback) {
+        // fixes a stonecutter screen bug where the click sound is played when clicking an empty recipe slot
+        callback.setReturnValue(true);
+    }
+
+    @Inject(method = "clickMenuButton", at = @At("TAIL"), cancellable = true)
+    public void clickMenuButton$1(Player player, int id, CallbackInfoReturnable<Boolean> callback) {
+        // fixes a stonecutter screen bug where the click sound is played when clicking an empty recipe slot
+        callback.setReturnValue(false);
+    }
+
     @Inject(method = "slotsChanged", at = @At("HEAD"))
     public void slotsChanged$0(Container container, CallbackInfo callback) {
         ItemStack itemStack = this.inputSlot.getItem();
@@ -144,31 +156,4 @@ abstract class StonecutterMenuMixin extends AbstractContainerMenu {
     public void quickMoveStack$1(Player player, int index, CallbackInfoReturnable<ItemStack> callback) {
         this.lastSoundTime = player.level().getGameTime();
     }
-
-//    @Override
-//    public void clicked(int slotId, int button, ClickType clickType, Player player) {
-//
-//        // TODO add crash handling back in here
-//
-//    if ((clickType == ClickType.QUICK_MOVE) && (button == 0 || button == 1)) {
-//        if (slotId != -999) {
-//            if (slotId < 0) {
-//                return;
-//            }
-//
-//            Slot slot6 = this.slots.get(slotId);
-//            if (!slot6.mayPickup(player)) {
-//                return;
-//            }
-//
-//            int i = 1;
-//            for(ItemStack itemstack8 = this.quickMoveStack(player, slotId); !itemstack8.isEmpty() && ItemStack.isSameItem(slot6.getItem(), itemstack8) && i < 64; itemstack8 = this.quickMoveStack(player, slotId)) {
-//                i++;
-//            }
-//            return;
-//            }
-//        }
-//
-//        super.clicked(slotId, button, clickType, player);
-//    }
 }
