@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DynamicPackResources extends AbstractModPackResources {
+    private static final PackOutput EMPTY_PACK_OUTPUT = new PackOutput(Path.of(""));
     private static final Map<String, PackType> PATHS_FOR_TYPE = Stream.of(PackType.values()).collect(ImmutableMap.toImmutableMap(PackType::getDirectory, Function.identity()));
 
     private final Map<PackType, Map<ResourceLocation, IoSupplier<InputStream>>> paths;
@@ -39,11 +40,10 @@ public class DynamicPackResources extends AbstractModPackResources {
     }
 
     private static Map<PackType, Map<ResourceLocation, IoSupplier<InputStream>>> generatePathsFromProviders(Collection<Function<PackOutput, DataProvider>> providers) {
-        PackOutput packOutput = new PackOutput(Path.of(""));
-        Map<PackType, Map<ResourceLocation, IoSupplier<InputStream>>> packTypes = Stream.of(PackType.values()).collect(Collectors.toMap(Function.identity(), $ -> Maps.newTreeMap()));
         try {
+            Map<PackType, Map<ResourceLocation, IoSupplier<InputStream>>> packTypes = Stream.of(PackType.values()).collect(Collectors.toMap(Function.identity(), $ -> Maps.newConcurrentMap()));
             for (Function<PackOutput, DataProvider> provider : providers) {
-                provider.apply(packOutput).run((Path filePath, byte[] data, HashCode hashCode) -> {
+                provider.apply(EMPTY_PACK_OUTPUT).run((Path filePath, byte[] data, HashCode hashCode) -> {
                     List<String> strings = FileUtil.decomposePath(filePath.normalize().toString()).get().left().filter(list -> list.size() >= 2).orElse(null);
                     if (strings != null) {
                         PackType packType = PATHS_FOR_TYPE.get(strings.get(0));
@@ -55,14 +55,14 @@ public class DynamicPackResources extends AbstractModPackResources {
                     }
                 }).get();
             }
+            packTypes.replaceAll((packType, map) -> {
+                return ImmutableMap.copyOf(map);
+            });
+            return Maps.immutableEnumMap(packTypes);
         } catch (Throwable e) {
             ArmorQuickSwap.LOGGER.warn("Unable to construct dynamic pack resources", e);
             return Map.of();
         }
-        packTypes.replaceAll((packType, map) -> {
-            return ImmutableMap.copyOf(map);
-        });
-        return Maps.immutableEnumMap(packTypes);
     }
 
     @Nullable

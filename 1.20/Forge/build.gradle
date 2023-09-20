@@ -24,13 +24,13 @@ task signJar(type: net.minecraftforge.gradle.common.tasks.SignJar, dependsOn: ta
     inputFile = outputFile = tasks.jarJar.archivePath
 }
 
-tasks.withType(Jar).configureEach {
-    manifest {
-        attributes([
-                "FMLModType"           : "LANGPROVIDER"
-        ])
-    }
-}
+//tasks.withType(Jar).configureEach {
+//    manifest {
+//        attributes([
+//                "FMLModType"           : "LANGPROVIDER"
+//        ])
+//    }
+//}
 
 jar.finalizedBy 'signJar'
 signJar.mustRunAfter 'reobfJar'

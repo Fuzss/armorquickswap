@@ -6,6 +6,7 @@
   "refmap": "armorquickswap.refmap.json",
   "plugin": "fuzs.armorquickswap.mixin.ModMixinConfigPlugin",
   "mixins": [
+    "BeaconBlockEntityMixin",
     "StonecutterBlockMixin",
     "StonecutterMenuMixin",
     "accessor.ArmorStandAccessor",
@@ -15,6 +16,7 @@
     "client.StonecutterScreenMixin",
     "client.accessor.AgeableListModelAccessor",
     "client.accessor.EntityAccessor",
+    "client.accessor.LivingEntityAccessor",
     "client.accessor.LivingEntityRendererAccessor",
     "client.accessor.ModelPartAccessor"
   ],

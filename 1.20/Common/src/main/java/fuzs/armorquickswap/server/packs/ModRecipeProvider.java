@@ -10,10 +10,10 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeProvider;
 import net.minecraft.data.recipes.SingleItemRecipeBuilder;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.ItemLike;
-import net.minecraft.world.level.block.Block;
 import org.apache.commons.compress.utils.Lists;
 
 import java.util.Collection;
@@ -23,34 +23,33 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class ModRecipeProvider extends RecipeProvider {
-    private final Collection<Map<BlockFamilyToken, Block>> blocks;
+    private final Collection<Map<BlockFamilyToken, Item>> items;
 
     public ModRecipeProvider(PackOutput packOutput) {
         super(packOutput);
     }
 
     {
-        Map<String, Map<BlockFamilyToken, Block>> blocks = Maps.newHashMap();
-        for (Map.Entry<ResourceKey<Block>, Block> entry : BuiltInRegistries.BLOCK.entrySet()) {
-            for (BlockFamilyToken token : BlockFamilyToken.WOOD_FAMILY) {
+        Map<String, Map<BlockFamilyToken, Item>> blocks = Maps.newHashMap();
+        for (Map.Entry<ResourceKey<Item>, Item> entry : BuiltInRegistries.ITEM.entrySet()) {
+            BlockFamilyToken token = null;
+            for (BlockFamilyToken currentToken : BlockFamilyToken.getBlockFamily(BlockFamilyToken.Type.WOOD)) {
                 String path = entry.getKey().location().getPath();
-                if (token.test(path, entry.getValue(), BlockFamilyToken.IndicatorType.WOOD_FAMILY_INDICATORS)) {
-                    path = token.strip(path);
-                    blocks.computeIfAbsent(path, $ -> Maps.newIdentityHashMap()).merge(token, entry.getValue(), (o1, o2) -> {
-                        int tokenValue1 = BlockFamilyToken.IndicatorType.value(BlockFamilyToken.IndicatorType.WOOD_FAMILY_INDICATORS, o1);
-                        int tokenValue2 = BlockFamilyToken.IndicatorType.value(BlockFamilyToken.IndicatorType.WOOD_FAMILY_INDICATORS, o2);
-                        return tokenValue2 > tokenValue1 ? o2 : o1;
-                    });
-                    break;
+                if (currentToken.test(path) && (token == null || currentToken.strip(path).length() < token.strip(path).length())) {
+                    token = currentToken;
                 }
             }
+            if (token != null) {
+                String path = entry.getKey().location().getPath();
+                blocks.computeIfAbsent(token.strip(path), $ -> Maps.newIdentityHashMap()).putIfAbsent(token, entry.getValue());
+            }
         }
-        this.blocks = ImmutableSet.copyOf(blocks.values());
+        this.items = ImmutableSet.copyOf(blocks.values());
     }
 
     @Override
     public void buildRecipes(Consumer<FinishedRecipe> writer) {
-        for (Map<BlockFamilyToken, Block> tokens : this.blocks) {
+        for (Map<BlockFamilyToken, Item> tokens : this.items) {
             for (BlockFamilyRecipe recipe : BlockFamilyRecipe.values()) {
                 recipe.apply(tokens::get, (ingredient, result, resultCount) -> stonecutterResultFromBase(writer, RecipeCategory.BUILDING_BLOCKS, result, ingredient, resultCount));
             }
@@ -84,11 +83,12 @@ public class ModRecipeProvider extends RecipeProvider {
         private static void logOrWood(BlockFamilyToken ingredient) {
             register(ingredient, BlockFamilyToken.PLANKS, 6);
             planks(ingredient, 6);
+            register(ingredient, BlockFamilyToken.BOAT);
+            register(ingredient, BlockFamilyToken.HANGING_SIGN);
         }
 
         private static void planks(BlockFamilyToken ingredient, int resultCount) {
             register(ingredient, BlockFamilyToken.SIGN, resultCount);
-            register(ingredient, BlockFamilyToken.HANGING_SIGN, resultCount);
             register(ingredient, BlockFamilyToken.PRESSURE_PLATE, resultCount);
             register(ingredient, BlockFamilyToken.TRAPDOOR, resultCount);
             register(ingredient, BlockFamilyToken.STAIRS, resultCount);
@@ -99,7 +99,7 @@ public class ModRecipeProvider extends RecipeProvider {
             register(ingredient, BlockFamilyToken.DOOR, resultCount);
             register(ingredient, Items.LADDER, resultCount);
             register(ingredient, Items.BOWL, resultCount);
-            register(ingredient, Items.STICK, resultCount * 2);
+            register(ingredient, Items.STICK, resultCount * 3);
         }
 
         private static void register(BlockFamilyToken ingredient, BlockFamilyToken result) {
