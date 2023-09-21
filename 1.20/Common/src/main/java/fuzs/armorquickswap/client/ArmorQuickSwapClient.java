@@ -11,6 +11,7 @@ import fuzs.puzzleslib.api.client.event.v1.InteractionInputEvents;
 import fuzs.puzzleslib.api.client.event.v1.RenderLivingEvents;
 import fuzs.puzzleslib.api.client.event.v1.ScreenMouseEvents;
 import fuzs.puzzleslib.api.core.v1.ContentRegistrationFlags;
+import fuzs.puzzleslib.api.event.v1.LoadCompleteCallback;
 import fuzs.puzzleslib.api.event.v1.core.EventPhase;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
 import fuzs.puzzleslib.api.event.v1.entity.living.LivingDeathCallback;
@@ -18,8 +19,10 @@ import fuzs.puzzleslib.api.event.v1.entity.living.LivingEvents;
 import fuzs.puzzleslib.api.event.v1.entity.player.PlayerTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.ParticleStatus;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.tutorial.TutorialSteps;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
@@ -62,13 +65,13 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
                     case MINIMAL:
                         invisible[0] = player.isInvisible();
                         player.setInvisible(true);
-                    case DECREASED :
+                    case DECREASED:
                         player.getEntityData().set(LivingEntityAccessor.armorquickswap$getdataEffectAmbienceId(), true);
                 }
             }
         });
         PlayerTickEvents.END.register(player -> {
-            if (player instanceof LocalPlayer && particleStatus == ParticleStatus.MINIMAL) {
+            if (player instanceof LocalPlayer && player.isInvisible() && particleStatus == ParticleStatus.MINIMAL) {
                 player.setInvisible(invisible[0]);
             }
         });
@@ -80,7 +83,7 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
                 if (state.is(ModRegistry.CLICK_THROUGH_BLOCK_TAG) && state.hasProperty(HorizontalDirectionalBlock.FACING)) {
                     Direction direction = state.getValue(HorizontalDirectionalBlock.FACING);
                     pos = pos.relative(direction.getOpposite());
-                    if (!useItemOnMenuProvider(minecraft, player, direction, pos) && useItemOn(minecraft, player, interactionHand, (BlockHitResult) hitResult)) {
+                    if (!useItemOnMenuProvider(minecraft, player, direction, pos) && useItem(minecraft, player, interactionHand, (BlockHitResult) hitResult)) {
                         return EventResult.INTERRUPT;
                     }
                 }
@@ -93,6 +96,12 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
             }
             return EventResult.PASS;
         });
+
+        LoadCompleteCallback.EVENT.register(() -> {
+            Minecraft.getInstance().options.tutorialStep = TutorialSteps.NONE;
+        });
+
+        ScreenMouseEvents.beforeMouseClick(ChatScreen.class).register(ClickableAdvancementsHandler::onBeforeMouseClick);
     }
 
     private static boolean useItemOnMenuProvider(Minecraft minecraft, LocalPlayer player, Direction direction, BlockPos pos) {
@@ -107,16 +116,11 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
         return true;
     }
 
-    private static boolean useItemOn(Minecraft minecraft, LocalPlayer player, InteractionHand interactionHand, BlockHitResult hitResult) {
+    private static boolean useItem(Minecraft minecraft, LocalPlayer player, InteractionHand interactionHand, BlockHitResult hitResult) {
         ItemStack itemInHand = player.getItemInHand(interactionHand);
         if (itemInHand.getItem() instanceof SignApplicator) {
             int itemCount = itemInHand.getCount();
-            boolean shiftKeyDown = player.input.shiftKeyDown;
-            player.input.shiftKeyDown = false;
-            player.connection.send(new ServerboundPlayerCommandPacket(player, ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
-            InteractionResult result = minecraft.gameMode.useItemOn(player, interactionHand, hitResult);
-            player.input.shiftKeyDown = shiftKeyDown;
-            player.connection.send(new ServerboundPlayerCommandPacket(player, shiftKeyDown ? ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY : ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
+            InteractionResult result = useItemWithoutSecondaryUse(minecraft, player, interactionHand, hitResult);
             if (result.consumesAction() && result.shouldSwing()) {
                 player.swing(interactionHand);
                 if (!itemInHand.isEmpty() && (itemInHand.getCount() != itemCount || minecraft.gameMode.hasInfiniteItems())) {
@@ -127,6 +131,16 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
         } else {
             return false;
         }
+    }
+
+    private static InteractionResult useItemWithoutSecondaryUse(Minecraft minecraft, LocalPlayer player, InteractionHand interactionHand, BlockHitResult hitResult) {
+        boolean shiftKeyDown = player.input.shiftKeyDown;
+        player.input.shiftKeyDown = false;
+        player.connection.send(new ServerboundPlayerCommandPacket(player, ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
+        InteractionResult result = minecraft.gameMode.useItemOn(player, interactionHand, hitResult);
+        player.input.shiftKeyDown = shiftKeyDown;
+        player.connection.send(new ServerboundPlayerCommandPacket(player, shiftKeyDown ? ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY : ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
+        return result;
     }
 
     @Override

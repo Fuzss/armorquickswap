@@ -7,6 +7,7 @@
   "plugin": "fuzs.armorquickswap.mixin.ModMixinConfigPlugin",
   "mixins": [
     "BeaconBlockEntityMixin",
+    "LivingEntityMixin",
     "StonecutterBlockMixin",
     "StonecutterMenuMixin",
     "accessor.ArmorStandAccessor",
@@ -14,6 +15,9 @@
   ],
   "client": [
     "client.StonecutterScreenMixin",
+    "client.accessor.AdvancementsScreenAccessor",
+    "client.accessor.AdvancementTabAccessor",
+    "client.accessor.AdvancementToastAccessor",
     "client.accessor.AgeableListModelAccessor",
     "client.accessor.EntityAccessor",
     "client.accessor.LivingEntityAccessor",
