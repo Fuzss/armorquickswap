@@ -7,9 +7,7 @@ import fuzs.armorquickswap.init.ModRegistry;
 import fuzs.armorquickswap.mixin.client.accessor.LivingEntityAccessor;
 import fuzs.puzzleslib.api.client.core.v1.ClientModConstructor;
 import fuzs.puzzleslib.api.client.core.v1.context.ParticleProvidersContext;
-import fuzs.puzzleslib.api.client.event.v1.InteractionInputEvents;
-import fuzs.puzzleslib.api.client.event.v1.RenderLivingEvents;
-import fuzs.puzzleslib.api.client.event.v1.ScreenMouseEvents;
+import fuzs.puzzleslib.api.client.event.v1.*;
 import fuzs.puzzleslib.api.core.v1.ContentRegistrationFlags;
 import fuzs.puzzleslib.api.event.v1.LoadCompleteCallback;
 import fuzs.puzzleslib.api.event.v1.core.EventPhase;
@@ -19,7 +17,9 @@ import fuzs.puzzleslib.api.event.v1.entity.living.LivingEvents;
 import fuzs.puzzleslib.api.event.v1.entity.player.PlayerTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.ParticleStatus;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.tutorial.TutorialSteps;
@@ -102,6 +102,8 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
         });
 
         ScreenMouseEvents.beforeMouseClick(ChatScreen.class).register(ClickableAdvancementsHandler::onBeforeMouseClick);
+        ClientPlayerEvents.LOGGED_IN.register(ClickableAdvancementsHandler::onLoggedIn);
+        ScreenEvents.afterRender(AdvancementsScreen.class).register(ClickableAdvancementsHandler::onAfterRender);
     }
 
     private static boolean useItemOnMenuProvider(Minecraft minecraft, LocalPlayer player, Direction direction, BlockPos pos) {
