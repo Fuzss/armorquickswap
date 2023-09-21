@@ -6,9 +6,9 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.data.event.GatherDataEvent;
 
-public class ModEntityTypeTagProvider extends AbstractTagProvider.EntityTypes {
+public class ModEntityTypeTagsProvider extends AbstractTagProvider.EntityTypes {
 
-    public ModEntityTypeTagProvider(GatherDataEvent evt, String modId) {
+    public ModEntityTypeTagsProvider(GatherDataEvent evt, String modId) {
         super(evt, modId);
     }
 

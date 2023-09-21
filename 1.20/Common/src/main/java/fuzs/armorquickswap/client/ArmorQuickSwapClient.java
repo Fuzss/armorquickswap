@@ -6,8 +6,10 @@ import fuzs.armorquickswap.client.init.ClientModRegistry;
 import fuzs.armorquickswap.init.ModRegistry;
 import fuzs.armorquickswap.mixin.client.accessor.LivingEntityAccessor;
 import fuzs.puzzleslib.api.client.core.v1.ClientModConstructor;
+import fuzs.puzzleslib.api.client.core.v1.context.KeyMappingsContext;
 import fuzs.puzzleslib.api.client.core.v1.context.ParticleProvidersContext;
 import fuzs.puzzleslib.api.client.event.v1.*;
+import fuzs.puzzleslib.api.client.screen.v2.KeyMappingActivationHelper;
 import fuzs.puzzleslib.api.core.v1.ContentRegistrationFlags;
 import fuzs.puzzleslib.api.event.v1.LoadCompleteCallback;
 import fuzs.puzzleslib.api.event.v1.core.EventPhase;
@@ -17,7 +19,6 @@ import fuzs.puzzleslib.api.event.v1.entity.living.LivingEvents;
 import fuzs.puzzleslib.api.event.v1.entity.player.PlayerTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.ParticleStatus;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -102,8 +103,14 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
         });
 
         ScreenMouseEvents.beforeMouseClick(ChatScreen.class).register(ClickableAdvancementsHandler::onBeforeMouseClick);
+        ScreenMouseEvents.beforeMouseClick(AdvancementsScreen.class).register(ClickableAdvancementsHandler::onBeforeMouseClick);
+        ScreenMouseEvents.afterMouseClick(AdvancementsScreen.class).register(ClickableAdvancementsHandler::onAfterMouseClick);
         ClientPlayerEvents.LOGGED_IN.register(ClickableAdvancementsHandler::onLoggedIn);
         ScreenEvents.afterRender(AdvancementsScreen.class).register(ClickableAdvancementsHandler::onAfterRender);
+        ScreenMouseEvents.beforeMouseScroll(AdvancementsScreen.class).register(ClickableAdvancementsHandler::onBeforeMouseScroll);
+        ScreenEvents.AFTER_INIT.register(ClickableAdvancementsHandler::onAfterInit);
+
+        ClientTickEvents.START.register(PortableCraftingHandler::onClientTick$Start);
     }
 
     private static boolean useItemOnMenuProvider(Minecraft minecraft, LocalPlayer player, Direction direction, BlockPos pos) {
@@ -143,6 +150,11 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
         player.input.shiftKeyDown = shiftKeyDown;
         player.connection.send(new ServerboundPlayerCommandPacket(player, shiftKeyDown ? ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY : ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
         return result;
+    }
+
+    @Override
+    public void onRegisterKeyMappings(KeyMappingsContext context) {
+        context.registerKeyMapping(PortableCraftingHandler.OPEN_CRAFTING_GRID_KEY_MAPPING, KeyMappingActivationHelper.KeyActivationContext.GAME);
     }
 
     @Override

@@ -5,6 +5,7 @@ import fuzs.armorquickswap.handler.ArmorStandGearHandler;
 import fuzs.armorquickswap.handler.RightClickHarvestHandler;
 import fuzs.armorquickswap.init.ModRegistry;
 import fuzs.armorquickswap.mixin.accessor.OreConfigurationAccessor;
+import fuzs.armorquickswap.network.client.ServerboundOpenCraftingGridMessage;
 import fuzs.armorquickswap.server.packs.DynamicPackResources;
 import fuzs.armorquickswap.server.packs.ModRecipeProvider;
 import fuzs.puzzleslib.api.core.v1.ModConstructor;
@@ -15,6 +16,7 @@ import fuzs.puzzleslib.api.event.v1.entity.ServerEntityLevelEvents;
 import fuzs.puzzleslib.api.event.v1.entity.player.PlayerInteractEvents;
 import fuzs.puzzleslib.api.event.v1.level.BlockEvents;
 import fuzs.puzzleslib.api.event.v1.server.ServerLifecycleEvents;
+import fuzs.puzzleslib.api.network.v3.NetworkHandlerV3;
 import fuzs.puzzleslib.api.resources.v1.PackResourcesHelper;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
@@ -36,6 +38,8 @@ public class ArmorQuickSwap implements ModConstructor {
     public static final String MOD_ID = "armorquickswap";
     public static final String MOD_NAME = "Armor Quick Swap";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_NAME);
+
+    public static final NetworkHandlerV3 NETWORK = NetworkHandlerV3.builder(MOD_ID).registerServerbound(ServerboundOpenCraftingGridMessage.class);
 
     @Override
     public void onConstructMod() {

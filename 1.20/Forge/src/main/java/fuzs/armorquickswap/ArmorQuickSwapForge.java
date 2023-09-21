@@ -1,15 +1,13 @@
 package fuzs.armorquickswap;
 
 import com.google.common.collect.ImmutableMap;
-import fuzs.armorquickswap.data.ModBlockTagProvider;
-import fuzs.armorquickswap.data.ModEntityTypeTagProvider;
+import fuzs.armorquickswap.data.ModBlockTagsProvider;
+import fuzs.armorquickswap.data.ModEntityTypeTagsProvider;
+import fuzs.armorquickswap.data.ModItemTagsProvider;
 import fuzs.armorquickswap.data.ModParticleDescriptionProvider;
 import fuzs.puzzleslib.api.core.v1.ModConstructor;
 import fuzs.puzzleslib.api.core.v1.ModLoaderEnvironment;
-import net.minecraft.client.gui.components.toasts.RecipeToast;
-import net.minecraft.client.gui.components.toasts.TutorialToast;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.EnchantedBookItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -17,8 +15,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraftforge.client.event.ClientChatReceivedEvent;
-import net.minecraftforge.client.event.ToastAddEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.ToolActions;
 import net.minecraftforge.data.event.GatherDataEvent;
@@ -99,8 +95,9 @@ public class ArmorQuickSwapForge {
 
     @SubscribeEvent
     public static void onGatherData(final GatherDataEvent evt) {
-        evt.getGenerator().addProvider(true, new ModBlockTagProvider(evt, ArmorQuickSwap.MOD_ID));
-        evt.getGenerator().addProvider(true, new ModEntityTypeTagProvider(evt, ArmorQuickSwap.MOD_ID));
+        evt.getGenerator().addProvider(true, new ModBlockTagsProvider(evt, ArmorQuickSwap.MOD_ID));
+        evt.getGenerator().addProvider(true, new ModEntityTypeTagsProvider(evt, ArmorQuickSwap.MOD_ID));
+        evt.getGenerator().addProvider(true, new ModItemTagsProvider(evt, ArmorQuickSwap.MOD_ID));
         evt.getGenerator().addProvider(true, new ModParticleDescriptionProvider(evt, ArmorQuickSwap.MOD_ID));
     }
 }

@@ -7,9 +7,9 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.data.event.GatherDataEvent;
 
-public class ModBlockTagProvider extends AbstractTagProvider.Blocks {
+public class ModBlockTagsProvider extends AbstractTagProvider.Blocks {
 
-    public ModBlockTagProvider(GatherDataEvent evt, String modId) {
+    public ModBlockTagsProvider(GatherDataEvent evt, String modId) {
         super(evt, modId);
     }
 
