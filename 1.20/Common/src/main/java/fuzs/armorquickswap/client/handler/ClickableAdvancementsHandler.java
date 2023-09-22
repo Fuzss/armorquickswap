@@ -9,15 +9,18 @@ import fuzs.armorquickswap.mixin.client.accessor.AdvancementToastAccessor;
 import fuzs.armorquickswap.mixin.client.accessor.AdvancementWidgetAccessor;
 import fuzs.armorquickswap.mixin.client.accessor.AdvancementsScreenAccessor;
 import fuzs.puzzleslib.api.client.screen.v2.ScreenHelper;
+import fuzs.puzzleslib.api.core.v1.ModLoaderEnvironment;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementProgress;
+import net.minecraft.advancements.DisplayInfo;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.toasts.AdvancementToast;
 import net.minecraft.client.gui.components.toasts.Toast;
+import net.minecraft.client.gui.components.toasts.ToastComponent;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.advancements.AdvancementTab;
@@ -43,6 +46,8 @@ public class ClickableAdvancementsHandler {
     private static final Component TITLE_COMPONENT = Component.translatable("gui.advancements");
     private static final Map<HoverEvent, Advancement> STYLES_CACHE = Maps.newHashMap();
 
+    private static float currentScale = 1.0F;
+    private static boolean isScrolling;
     @Nullable
     private static AdvancementWidget widget;
     private static double scrollX;
@@ -85,7 +90,7 @@ public class ClickableAdvancementsHandler {
         if (grantAdvancement || button == InputConstants.MOUSE_BUTTON_RIGHT) {
             Minecraft minecraft = ScreenHelper.INSTANCE.getMinecraft(screen);
             AdvancementTab tab = ((AdvancementsScreenAccessor) screen).armorquickswap$getSelectedTab();
-            if (tab != null && Screen.hasControlDown() && minecraft.gameMode.hasInfiniteItems()) {
+            if (tab != null && Screen.hasControlDown() && minecraft.gameMode.hasInfiniteItems() && minecraft.player.hasPermissions(2)) {
                 int leftPos = (screen.width - AdvancementsScreen.WINDOW_WIDTH) / 2;
                 int topPos = (screen.height - AdvancementsScreen.WINDOW_HEIGHT) / 2;
                 int scrollX = Mth.floor(((AdvancementTabAccessor) tab).armorquickswap$getScrollX());
@@ -111,6 +116,12 @@ public class ClickableAdvancementsHandler {
     }
 
     public static void onAfterRender(AdvancementsScreen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float tickDelta) {
+        // the super call is missing in vanilla, but Forge adds it
+        if (!ModLoaderEnvironment.INSTANCE.isForge()) {
+            for (Renderable renderable : screen.renderables) {
+                renderable.render(guiGraphics, mouseX, mouseY, tickDelta);
+            }
+        }
         AdvancementTab tab = ((AdvancementsScreenAccessor) screen).armorquickswap$getSelectedTab();
         if (tab != null && widget != null && Math.abs(scrollX - ((AdvancementTabAccessor) tab).armorquickswap$getScrollX()) < 2.0 && Math.abs(scrollY - ((AdvancementTabAccessor) tab).armorquickswap$getScrollY()) < 2.0) {
             int leftPos = (screen.width - AdvancementsScreen.WINDOW_WIDTH) / 2;
@@ -127,7 +138,6 @@ public class ClickableAdvancementsHandler {
                     }
                 }
             }
-            guiGraphics.pose().pushPose();
             guiGraphics.pose().pushPose();
             guiGraphics.pose().translate(leftPos + 9, topPos + 18, 200.0F);
             RenderSystem.enableDepthTest();
@@ -156,16 +166,36 @@ public class ClickableAdvancementsHandler {
             if (scrollOnTabs) {
                 for (int i = 0; i < tabs.size(); i++) {
                     if (tabs.get(i).getValue() == tab) {
-                        i = Mth.positiveModulo(i + (int) -Math.signum(horizontalAmount), tabs.size());
+                        i = Mth.positiveModulo(i + (int) -Math.signum(verticalAmount), tabs.size());
                         screen.onSelectedTabChanged(tabs.get(i).getKey());
                         setTitleFromSelectedTab(screen);
                         break;
                     }
                 }
             } else if (leftPos <= mouseX && mouseX < leftPos + AdvancementsScreen.WINDOW_WIDTH && topPos <= mouseY && mouseY < topPos + AdvancementsScreen.WINDOW_HEIGHT) {
-                tab.scroll(horizontalAmount, verticalAmount);
+                currentScale = Mth.clamp(currentScale + (float) Math.signum(verticalAmount) * 0.0625F, 0.5F, 1.0F);
             }
             return EventResult.INTERRUPT;
+        }
+        return EventResult.PASS;
+    }
+
+    public static float getCurrentScale() {
+        return currentScale;
+    }
+
+    public static EventResult onBeforeMouseDrag(AdvancementsScreen screen, double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button != 0) {
+            isScrolling = false;
+        } else {
+            if (!isScrolling) {
+                isScrolling = true;
+            } else {
+                AdvancementTab selectedTab = ((AdvancementsScreenAccessor) screen).armorquickswap$getSelectedTab();
+                if (selectedTab != null) {
+                    selectedTab.scroll(dragX, dragY);
+                }
+            }
         }
         return EventResult.PASS;
     }
@@ -174,7 +204,7 @@ public class ClickableAdvancementsHandler {
         STYLES_CACHE.clear();
     }
 
-    public static EventResult onAddToast(Toast toast) {
+    public static EventResult onAddToast(ToastComponent toastManager, Toast toast) {
         if (toast instanceof AdvancementToast) {
             Advancement advancement = ((AdvancementToastAccessor) toast).armroquickswap$getAdvancement();
             HoverEvent hoverEvent = getAdvancementHoverStyle(advancement);
@@ -234,34 +264,42 @@ public class ClickableAdvancementsHandler {
 
     public static void onAfterInit(Minecraft minecraft, Screen screen, int screenWidth, int screenHeight, List<AbstractWidget> widgets, Consumer<AbstractWidget> addWidget, Consumer<AbstractWidget> removeWidget) {
         if (screen instanceof AdvancementsScreen advancementsScreen) {
-            addWidget.accept(Button.builder(CommonComponents.GUI_DONE, (p_251194_) -> {
-                screen.onClose();
-            }).bounds(screen.width / 2 - 100, screen.height / 4 + 144, 200, 20).build());
+//            addWidget.accept(Button.builder(CommonComponents.GUI_DONE, (p_251194_) -> {
+//                screen.onClose();
+//            }).bounds(screen.width / 2 - 100, (screen.height + AdvancementsScreen.WINDOW_HEIGHT) / 2 + 28, 200, 20).build());
             setTitleFromSelectedTab(advancementsScreen);
             ClientAdvancements advancements = minecraft.getConnection().getAdvancements();
             Map<Advancement, AdvancementTab> tabs = ((AdvancementsScreenAccessor) screen).armorquickswap$getTabs();
             for (AdvancementTab tab : tabs.values()) {
                 Map<Advancement, AdvancementWidget> widgets1 = ((AdvancementTabAccessor) tab).armorquickswap$getWidgets();
                 for (Map.Entry<Advancement, AdvancementWidget> entry : widgets1.entrySet()) {
-                    Set<String> strings = entry.getKey().getCriteria().keySet();
+                    Advancement advancement = entry.getKey();
+                    Set<String> strings = advancement.getCriteria().keySet();
                     if (!strings.isEmpty()) {
                         AdvancementWidget advancementWidget = entry.getValue();
-                        List<FormattedCharSequence> description = Lists.newArrayList(((AdvancementWidgetAccessor) advancementWidget).armorquickswap$getDescription());
-                        int maxWidth = 163 - minecraft.font.width(CommonComponents.ELLIPSIS);
+                        List<FormattedCharSequence> criteria = Lists.newArrayList();
+                        int maxCriteriaLineWidth = 163 - minecraft.font.width(CommonComponents.ELLIPSIS);
                         for (String string : strings) {
                             string = string.replaceAll(".*:", "");
                             FormattedCharSequence formattedCharSequence;
                             if (minecraft.font.width(string) > 163) {
-                                FormattedText text = minecraft.font.substrByWidth(Component.literal(string), maxWidth);
+                                FormattedText text = minecraft.font.substrByWidth(Component.literal(string), maxCriteriaLineWidth);
                                 text = FormattedText.composite(text, CommonComponents.ELLIPSIS);
                                 formattedCharSequence = Language.getInstance().getVisualOrder(text);
                             } else {
                                 formattedCharSequence = Component.literal(string).getVisualOrderText();
                             }
-                            description.add(formattedCharSequence);
+                            criteria.add(formattedCharSequence);
                         }
-                        ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$setDescription(description);
-                        description.stream().mapToInt(minecraft.font::width).max().stream().map(t -> t + 8).filter(t -> t > ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$getWidth()).findAny().ifPresent(((AdvancementWidgetAccessor) advancementWidget)::armorquickswap$setWidth);
+                        int maxWidth = ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$getWidth() - 8;
+                        maxWidth = Math.max(maxWidth, criteria.stream().mapToInt(minecraft.font::width).max().orElse(0));
+                        DisplayInfo display = advancement.getDisplay();
+                        Objects.requireNonNull(display, "display is null");
+                        List<FormattedCharSequence> description = Language.getInstance().getVisualOrder(((AdvancementWidgetAccessor) advancementWidget).armorquickswap$callFindOptimalLines(ComponentUtils.mergeStyles(display.getDescription().copy(), Style.EMPTY.withColor(display.getFrame().getChatColor())), maxWidth));
+                        criteria.addAll(0, description);
+                        maxWidth = Math.max(maxWidth, criteria.stream().mapToInt(minecraft.font::width).max().orElse(0));
+                        ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$setWidth(maxWidth + 8);
+                        ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$setDescription(List.copyOf(criteria));
                     }
                 }
             }

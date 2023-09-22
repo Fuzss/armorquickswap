@@ -14,6 +14,7 @@
     "accessor.OreConfigurationAccessor"
   ],
   "client": [
+    "client.AdvancementTabMixin",
     "client.StonecutterScreenMixin",
     "client.accessor.AdvancementsScreenAccessor",
     "client.accessor.AdvancementTabAccessor",
@@ -22,9 +23,12 @@
     "client.accessor.AgeableListModelAccessor",
     "client.accessor.ClientAdvancementsAccessor",
     "client.accessor.EntityAccessor",
+    "client.accessor.ItemInHandRendererAccessor",
     "client.accessor.LivingEntityAccessor",
     "client.accessor.LivingEntityRendererAccessor",
-    "client.accessor.ModelPartAccessor"
+    "client.accessor.MinecraftAccessor",
+    "client.accessor.ModelPartAccessor",
+    "client.accessor.ToastComponentAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
