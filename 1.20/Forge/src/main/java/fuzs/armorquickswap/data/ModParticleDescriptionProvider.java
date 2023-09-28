@@ -1,14 +1,16 @@
 package fuzs.armorquickswap.data;
 
 import fuzs.armorquickswap.client.init.ClientModRegistry;
-import fuzs.puzzleslib.api.data.v1.AbstractParticleDescriptionProvider;
+import fuzs.puzzleslib.api.data.v2.client.AbstractParticleDescriptionProvider;
+import fuzs.puzzleslib.api.data.v2.core.DataProviderContext;
+import fuzs.puzzleslib.api.data.v2.core.ForgeDataProviderContext;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.data.event.GatherDataEvent;
 
 public class ModParticleDescriptionProvider extends AbstractParticleDescriptionProvider {
 
-    public ModParticleDescriptionProvider(GatherDataEvent evt, String modId) {
-        super(evt, modId);
+    public ModParticleDescriptionProvider(DataProviderContext context) {
+        // FIXME
+        super((ForgeDataProviderContext) context);
     }
 
     @Override

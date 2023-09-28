@@ -5,16 +5,15 @@ import net.minecraft.util.RandomSource;
 
 public enum AdvancementBackgroundType {
     STONE("stone", 100, 0, 100, 100),
-    GRASS_BLOCK("grass_block", 100, 100, 100, 100),
-    DIRT("dirt", 100, 90, 100, 20),
+    DIRT("dirt", 100, 90, 100, 40),
     COAL_ORE("coal_ore", DIRT.minHeight, 0, 10),
     IRON_ORE("iron_ore", DIRT.minHeight, 0, 8),
     COPPER_ORE("copper_ore", DIRT.minHeight, 0, 5),
     GOLD_ORE("gold_ore", 50, 0, 3),
-    LAPIS_ORE("lapis_lazuli_ore", 50, 0, 3),
+    LAPIS_ORE("lapis_ore", 50, 0, 3),
     REDSTONE_ORE("redstone_ore", 50, 0, 3),
     DIAMOND_ORE("diamond_ore", 25, 0, 1),
-    BEDROCK("bedrock", 10, 0, 20, 100);
+    BEDROCK("bedrock", 10, 0, 40, 100);
 
     private static final AdvancementBackgroundType[] VALUES = AdvancementBackgroundType.values();
 
@@ -50,7 +49,7 @@ public enum AdvancementBackgroundType {
 
     public static AdvancementBackgroundType getBackgroundAtHeight(RandomSource random, int height) {
         if (height == 100) {
-            return GRASS_BLOCK;
+            return DIRT;
         } else if (height == 0) {
             return BEDROCK;
         } else {
@@ -68,6 +67,6 @@ public enum AdvancementBackgroundType {
     }
 
     public ResourceLocation getBackground() {
-        return background;
+        return this.background;
     }
 }

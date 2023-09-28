@@ -8,6 +8,7 @@ import fuzs.armorquickswap.mixin.client.accessor.AdvancementTabAccessor;
 import fuzs.armorquickswap.mixin.client.accessor.AdvancementToastAccessor;
 import fuzs.armorquickswap.mixin.client.accessor.AdvancementWidgetAccessor;
 import fuzs.armorquickswap.mixin.client.accessor.AdvancementsScreenAccessor;
+import fuzs.puzzleslib.api.client.event.v1.ScreenEvents;
 import fuzs.puzzleslib.api.client.screen.v2.ScreenHelper;
 import fuzs.puzzleslib.api.core.v1.ModLoaderEnvironment;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
@@ -37,16 +38,18 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.function.Consumer;
 
 public class ClickableAdvancementsHandler {
     private static final Component TITLE_COMPONENT = Component.translatable("gui.advancements");
     private static final Map<HoverEvent, Advancement> STYLES_CACHE = Maps.newHashMap();
+    private static final RandomSource RANDOM = RandomSource.create();
 
     private static float currentScale = 1.0F;
+    private static long currentSeed;
     private static boolean isScrolling;
     @Nullable
     private static AdvancementWidget widget;
@@ -262,45 +265,44 @@ public class ClickableAdvancementsHandler {
         return null;
     }
 
-    public static void onAfterInit(Minecraft minecraft, Screen screen, int screenWidth, int screenHeight, List<AbstractWidget> widgets, Consumer<AbstractWidget> addWidget, Consumer<AbstractWidget> removeWidget) {
-        if (screen instanceof AdvancementsScreen advancementsScreen) {
+    public static void onAfterInit(Minecraft minecraft, AdvancementsScreen screen, int screenWidth, int screenHeight, List<AbstractWidget> widgets, ScreenEvents.ConsumingOperator<AbstractWidget> addWidget, ScreenEvents.ConsumingOperator<AbstractWidget> removeWidget) {
+        currentSeed = RANDOM.nextLong();
 //            addWidget.accept(Button.builder(CommonComponents.GUI_DONE, (p_251194_) -> {
 //                screen.onClose();
 //            }).bounds(screen.width / 2 - 100, (screen.height + AdvancementsScreen.WINDOW_HEIGHT) / 2 + 28, 200, 20).build());
-            setTitleFromSelectedTab(advancementsScreen);
-            ClientAdvancements advancements = minecraft.getConnection().getAdvancements();
-            Map<Advancement, AdvancementTab> tabs = ((AdvancementsScreenAccessor) screen).armorquickswap$getTabs();
-            for (AdvancementTab tab : tabs.values()) {
-                Map<Advancement, AdvancementWidget> widgets1 = ((AdvancementTabAccessor) tab).armorquickswap$getWidgets();
-                for (Map.Entry<Advancement, AdvancementWidget> entry : widgets1.entrySet()) {
-                    Advancement advancement = entry.getKey();
-                    Set<String> strings = advancement.getCriteria().keySet();
-                    if (!strings.isEmpty()) {
-                        AdvancementWidget advancementWidget = entry.getValue();
-                        List<FormattedCharSequence> criteria = Lists.newArrayList();
-                        int maxCriteriaLineWidth = 163 - minecraft.font.width(CommonComponents.ELLIPSIS);
-                        for (String string : strings) {
-                            string = string.replaceAll(".*:", "");
-                            FormattedCharSequence formattedCharSequence;
-                            if (minecraft.font.width(string) > 163) {
-                                FormattedText text = minecraft.font.substrByWidth(Component.literal(string), maxCriteriaLineWidth);
-                                text = FormattedText.composite(text, CommonComponents.ELLIPSIS);
-                                formattedCharSequence = Language.getInstance().getVisualOrder(text);
-                            } else {
-                                formattedCharSequence = Component.literal(string).getVisualOrderText();
-                            }
-                            criteria.add(formattedCharSequence);
+        setTitleFromSelectedTab(screen);
+        ClientAdvancements advancements = minecraft.getConnection().getAdvancements();
+        Map<Advancement, AdvancementTab> tabs = ((AdvancementsScreenAccessor) screen).armorquickswap$getTabs();
+        for (AdvancementTab tab : tabs.values()) {
+            Map<Advancement, AdvancementWidget> widgets1 = ((AdvancementTabAccessor) tab).armorquickswap$getWidgets();
+            for (Map.Entry<Advancement, AdvancementWidget> entry : widgets1.entrySet()) {
+                Advancement advancement = entry.getKey();
+                Set<String> strings = advancement.getCriteria().keySet();
+                if (!strings.isEmpty()) {
+                    AdvancementWidget advancementWidget = entry.getValue();
+                    List<FormattedCharSequence> criteria = Lists.newArrayList();
+                    int maxCriteriaLineWidth = 163 - minecraft.font.width(CommonComponents.ELLIPSIS);
+                    for (String string : strings) {
+                        string = string.replaceAll(".*:", "");
+                        FormattedCharSequence formattedCharSequence;
+                        if (minecraft.font.width(string) > 163) {
+                            FormattedText text = minecraft.font.substrByWidth(Component.literal(string), maxCriteriaLineWidth);
+                            text = FormattedText.composite(text, CommonComponents.ELLIPSIS);
+                            formattedCharSequence = Language.getInstance().getVisualOrder(text);
+                        } else {
+                            formattedCharSequence = Component.literal(string).getVisualOrderText();
                         }
-                        int maxWidth = ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$getWidth() - 8;
-                        maxWidth = Math.max(maxWidth, criteria.stream().mapToInt(minecraft.font::width).max().orElse(0));
-                        DisplayInfo display = advancement.getDisplay();
-                        Objects.requireNonNull(display, "display is null");
-                        List<FormattedCharSequence> description = Language.getInstance().getVisualOrder(((AdvancementWidgetAccessor) advancementWidget).armorquickswap$callFindOptimalLines(ComponentUtils.mergeStyles(display.getDescription().copy(), Style.EMPTY.withColor(display.getFrame().getChatColor())), maxWidth));
-                        criteria.addAll(0, description);
-                        maxWidth = Math.max(maxWidth, criteria.stream().mapToInt(minecraft.font::width).max().orElse(0));
-                        ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$setWidth(maxWidth + 8);
-                        ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$setDescription(List.copyOf(criteria));
+                        criteria.add(formattedCharSequence);
                     }
+                    int maxWidth = ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$getWidth() - 8;
+                    maxWidth = Math.max(maxWidth, criteria.stream().mapToInt(minecraft.font::width).max().orElse(0));
+                    DisplayInfo display = advancement.getDisplay();
+                    Objects.requireNonNull(display, "display is null");
+                    List<FormattedCharSequence> description = Language.getInstance().getVisualOrder(((AdvancementWidgetAccessor) advancementWidget).armorquickswap$callFindOptimalLines(ComponentUtils.mergeStyles(display.getDescription().copy(), Style.EMPTY.withColor(display.getFrame().getChatColor())), maxWidth));
+                    criteria.addAll(0, description);
+                    maxWidth = Math.max(maxWidth, criteria.stream().mapToInt(minecraft.font::width).max().orElse(0));
+                    ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$setWidth(maxWidth + 8);
+                    ((AdvancementWidgetAccessor) advancementWidget).armorquickswap$setDescription(List.copyOf(criteria));
                 }
             }
         }
@@ -316,5 +318,10 @@ public class ClickableAdvancementsHandler {
             Component title = Component.empty().append(selectedTab.getTitle()).append(CommonComponents.SPACE).append(ClickableAdvancementsHandler.TITLE_COMPONENT);
             AdvancementsScreenAccessor.armorquickswap$setTitle(title);
         }
+    }
+
+    public static RandomSource getFreshRandomSource(int seed) {
+        RANDOM.setSeed(currentSeed + seed);
+        return RANDOM;
     }
 }

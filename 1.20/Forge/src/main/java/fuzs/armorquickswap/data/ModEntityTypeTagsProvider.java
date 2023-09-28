@@ -1,15 +1,15 @@
 package fuzs.armorquickswap.data;
 
 import fuzs.armorquickswap.init.ModRegistry;
-import fuzs.puzzleslib.api.data.v1.AbstractTagProvider;
+import fuzs.puzzleslib.api.data.v2.AbstractTagProvider;
+import fuzs.puzzleslib.api.data.v2.core.DataProviderContext;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.world.entity.EntityType;
-import net.minecraftforge.data.event.GatherDataEvent;
 
 public class ModEntityTypeTagsProvider extends AbstractTagProvider.EntityTypes {
 
-    public ModEntityTypeTagsProvider(GatherDataEvent evt, String modId) {
-        super(evt, modId);
+    public ModEntityTypeTagsProvider(DataProviderContext context) {
+        super(context);
     }
 
     @Override

@@ -2,26 +2,28 @@ package fuzs.armorquickswap;
 
 import com.google.common.collect.Lists;
 import fuzs.armorquickswap.handler.ArmorStandGearHandler;
+import fuzs.armorquickswap.handler.GrindstoneDisenchantHandler;
 import fuzs.armorquickswap.handler.RightClickHarvestHandler;
 import fuzs.armorquickswap.init.ModRegistry;
 import fuzs.armorquickswap.mixin.accessor.OreConfigurationAccessor;
 import fuzs.armorquickswap.network.client.ServerboundOpenCraftingGridMessage;
-import fuzs.armorquickswap.server.packs.DynamicPackResources;
-import fuzs.armorquickswap.server.packs.ModRecipeProvider;
+import fuzs.armorquickswap.server.packs.DeepslateRecipeProvider;
+import fuzs.armorquickswap.server.packs.SawmillRecipeProvider;
 import fuzs.puzzleslib.api.core.v1.ModConstructor;
+import fuzs.puzzleslib.api.core.v1.context.BlockInteractionsContext;
 import fuzs.puzzleslib.api.core.v1.context.PackRepositorySourcesContext;
 import fuzs.puzzleslib.api.event.v1.core.EventPhase;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
 import fuzs.puzzleslib.api.event.v1.entity.ServerEntityLevelEvents;
+import fuzs.puzzleslib.api.event.v1.entity.player.GrindstoneEvents;
 import fuzs.puzzleslib.api.event.v1.entity.player.PlayerInteractEvents;
 import fuzs.puzzleslib.api.event.v1.level.BlockEvents;
 import fuzs.puzzleslib.api.event.v1.server.ServerLifecycleEvents;
 import fuzs.puzzleslib.api.network.v3.NetworkHandlerV3;
+import fuzs.puzzleslib.api.resources.v1.DynamicPackResources;
 import fuzs.puzzleslib.api.resources.v1.PackResourcesHelper;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.CommonComponents;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.npc.VillagerDataHolder;
@@ -50,6 +52,7 @@ public class ArmorQuickSwap implements ModConstructor {
     private static void registerHandlers() {
         // run before other mods like Quark that might interfere here
         PlayerInteractEvents.USE_ENTITY_AT.register(EventPhase.BEFORE, ArmorStandGearHandler::onUseEntityAt);
+
         ServerLifecycleEvents.STARTING.register(server -> {
 
             Registry<ConfiguredFeature<?, ?>> registry = server.registryAccess().registryOrThrow(Registries.CONFIGURED_FEATURE);
@@ -72,10 +75,13 @@ public class ArmorQuickSwap implements ModConstructor {
                 }
             }
         });
+
         PlayerInteractEvents.USE_BLOCK.register(RightClickHarvestHandler::onUseBlock);
+
         BlockEvents.FARMLAND_TRAMPLE.register((level, pos, state, fallDistance, entity) -> {
             return EventResult.INTERRUPT;
         });
+
         ServerEntityLevelEvents.SPAWN.register((entity, level, spawnType) -> {
             // don't affect when profession is forced during summoning via command, which is achieved by the null check
             // MobSpawnType#COMMAND on the other hand only targets mobs without predefined nbt tag which should not allow for nitwits
@@ -87,11 +93,24 @@ public class ArmorQuickSwap implements ModConstructor {
             }
             return EventResult.PASS;
         });
+
+        GrindstoneEvents.UPDATE.register(GrindstoneDisenchantHandler::onGrindstoneUpdate);
+        GrindstoneEvents.USE.register(GrindstoneDisenchantHandler::onGrindstoneUse);
+    }
+
+    @Override
+    public void onRegisterBlockInteractions(BlockInteractionsContext context) {
+        context.registerStrippable(Blocks.OAK_LOG, Blocks.STRIPPED_OAK_LOG);
+        context.registerStrippable(Blocks.OAK_WOOD, Blocks.STRIPPED_OAK_WOOD);
+        context.registerFlattenable(Blocks.DIRT, Blocks.DIRT_PATH);
+        context.registerFlattenable(Blocks.DIRT_PATH, Blocks.FARMLAND);
+        context.registerTillable(Blocks.FARMLAND, Blocks.DIRT_PATH);
+        context.registerTillable(Blocks.DIRT, Blocks.FARMLAND);
     }
 
     @Override
     public void onAddDataPackFinders(PackRepositorySourcesContext context) {
-        context.addRepositorySource(PackResourcesHelper.buildServerPack(DynamicPackResources.create(List.of(ModRecipeProvider::new)), "woodcutting_recipes", Component.literal(MOD_NAME), CommonComponents.EMPTY, true, false));
+        context.addRepositorySource(PackResourcesHelper.buildServerPack(id("dynamic_recipes"), DynamicPackResources.create(SawmillRecipeProvider::new, DeepslateRecipeProvider::new), false));
     }
 
     public static ResourceLocation id(String path) {

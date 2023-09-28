@@ -2,17 +2,14 @@ package fuzs.armorquickswap.server.packs;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import fuzs.armorquickswap.ArmorQuickSwap;
+import fuzs.puzzleslib.api.data.v2.AbstractRecipeProvider;
+import fuzs.puzzleslib.api.data.v2.core.DataProviderContext;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.data.PackOutput;
 import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.data.recipes.RecipeCategory;
-import net.minecraft.data.recipes.RecipeProvider;
-import net.minecraft.data.recipes.SingleItemRecipeBuilder;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.ItemLike;
 import org.apache.commons.compress.utils.Lists;
 
@@ -22,12 +19,8 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public class ModRecipeProvider extends RecipeProvider {
+public class SawmillRecipeProvider extends AbstractRecipeProvider {
     private final Collection<Map<BlockFamilyToken, Item>> items;
-
-    public ModRecipeProvider(PackOutput packOutput) {
-        super(packOutput);
-    }
 
     {
         Map<String, Map<BlockFamilyToken, Item>> blocks = Maps.newHashMap();
@@ -47,25 +40,26 @@ public class ModRecipeProvider extends RecipeProvider {
         this.items = ImmutableSet.copyOf(blocks.values());
     }
 
+    public SawmillRecipeProvider(DataProviderContext context) {
+        super(context);
+    }
+
     @Override
-    public void buildRecipes(Consumer<FinishedRecipe> writer) {
+    public void addRecipes(Consumer<FinishedRecipe> exporter) {
         for (Map<BlockFamilyToken, Item> tokens : this.items) {
             for (BlockFamilyRecipe recipe : BlockFamilyRecipe.values()) {
-                recipe.apply(tokens::get, (ingredient, result, resultCount) -> stonecutterResultFromBase(writer, RecipeCategory.BUILDING_BLOCKS, result, ingredient, resultCount));
+                recipe.apply(tokens::get, (ingredient, result, resultCount) -> stonecutterResultFromBase(exporter, RecipeCategory.BUILDING_BLOCKS, result, ingredient, resultCount));
             }
         }
     }
 
-    public static void stonecutterResultFromBase(Consumer<FinishedRecipe> exporter, RecipeCategory category, ItemLike result, ItemLike ingredient) {
-        stonecutterResultFromBase(exporter, category, result, ingredient, 1);
+    private interface StonecutterRecipeFactory {
+
+        void apply(ItemLike ingredient, ItemLike result, int resultCount);
     }
 
-    public static void stonecutterResultFromBase(Consumer<FinishedRecipe> exporter, RecipeCategory category, ItemLike result, ItemLike ingredient, int resultCount) {
-        String recipeId = getConversionRecipeName(result, ingredient) + "_stonecutting";
-        SingleItemRecipeBuilder.stonecutting(Ingredient.of(ingredient), category, result, resultCount).unlockedBy(getHasName(ingredient), has(ingredient)).save(exporter, ArmorQuickSwap.id(recipeId));
-    }
-
-    private record BlockFamilyRecipe(Function<Function<BlockFamilyToken, ItemLike>, ItemLike> ingredient, Function<Function<BlockFamilyToken, ItemLike>, ItemLike> result, int resultCount) {
+    private record BlockFamilyRecipe(Function<Function<BlockFamilyToken, ItemLike>, ItemLike> ingredient,
+                                     Function<Function<BlockFamilyToken, ItemLike>, ItemLike> result, int resultCount) {
         private static final Collection<BlockFamilyRecipe> VALUES = Lists.newArrayList();
 
         static {
@@ -125,10 +119,5 @@ public class ModRecipeProvider extends RecipeProvider {
                 factory.apply(ingredient, result, this.resultCount);
             }
         }
-    }
-
-    private interface StonecutterRecipeFactory {
-
-        void apply(ItemLike ingredient, ItemLike result, int resultCount);
     }
 }
