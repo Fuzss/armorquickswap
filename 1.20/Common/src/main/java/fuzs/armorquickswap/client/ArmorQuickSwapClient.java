@@ -87,6 +87,7 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
                 @Override
                 public void addBlockModels(BlockModelBuilder builder) {
                     builder.copyModel(Blocks.DIAMOND_BLOCK, Blocks.COAL_BLOCK);
+                    builder.copyModel(Blocks.COAL_BLOCK, Blocks.DIAMOND_BLOCK);
                 }
 
                 @Override
