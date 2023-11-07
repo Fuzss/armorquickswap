@@ -16,6 +16,7 @@ import fuzs.puzzleslib.api.core.v1.ContentRegistrationFlags;
 import fuzs.puzzleslib.api.core.v1.context.PackRepositorySourcesContext;
 import fuzs.puzzleslib.api.event.v1.LoadCompleteCallback;
 import fuzs.puzzleslib.api.event.v1.core.EventPhase;
+import fuzs.puzzleslib.api.event.v1.entity.living.LivingAttackCallback;
 import fuzs.puzzleslib.api.event.v1.entity.living.LivingDeathCallback;
 import fuzs.puzzleslib.api.event.v1.entity.living.LivingEvents;
 import fuzs.puzzleslib.api.event.v1.entity.player.PlayerTickEvents;
@@ -67,6 +68,11 @@ public class ArmorQuickSwapClient implements ClientModConstructor {
 
         ClientTickEvents.START.register(BoatItemViewHandler::onStartClientTick);
         ClientTickEvents.END.register(BoatItemViewHandler::onEndClientTick);
+
+        LivingAttackCallback.EVENT.register(ColoredFireOverlayHandler::onLivingAttack);
+        ModelEvents.MODIFY_UNBAKED_MODEL.register(ColoredFireOverlayHandler::onModifyUnbakedModel);
+        ModelEvents.AFTER_MODEL_LOADING.register(ColoredFireOverlayHandler::onAfterModelLoading);
+        RenderBlockOverlayCallback.EVENT.register(ColoredFireOverlayHandler::onRenderBlockOverlay);
     }
 
     @Override
