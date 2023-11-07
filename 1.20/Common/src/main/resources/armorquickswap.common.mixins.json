@@ -6,8 +6,6 @@
   "refmap": "armorquickswap.refmap.json",
   "plugin": "fuzs.armorquickswap.mixin.ModMixinConfigPlugin",
   "mixins": [
-    "BeaconBlockEntityMixin",
-    "LivingEntityMixin",
     "StonecutterBlockMixin",
     "StonecutterMenuMixin",
     "accessor.ArmorStandAccessor",
@@ -15,22 +13,12 @@
   ],
   "client": [
     "client.AdvancementTabMixin",
-    "client.EntityMixin",
-    "client.EntityRenderDispatcherMixin",
     "client.StonecutterScreenMixin",
     "client.accessor.AdvancementsScreenAccessor",
     "client.accessor.AdvancementTabAccessor",
     "client.accessor.AdvancementToastAccessor",
     "client.accessor.AdvancementWidgetAccessor",
-    "client.accessor.AgeableListModelAccessor",
-    "client.accessor.ClientAdvancementsAccessor",
-    "client.accessor.EntityAccessor",
-    "client.accessor.ItemInHandRendererAccessor",
-    "client.accessor.LivingEntityAccessor",
-    "client.accessor.LivingEntityRendererAccessor",
-    "client.accessor.MinecraftAccessor",
-    "client.accessor.ModelPartAccessor",
-    "client.accessor.ToastComponentAccessor"
+    "client.accessor.ClientAdvancementsAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
