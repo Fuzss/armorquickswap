@@ -16,7 +16,8 @@ public class ArmorStandGearHandler {
 
     public static EventResultHolder<InteractionResult> onUseEntityAt(Player player, Level level, InteractionHand interactionHand, Entity entity, Vec3 hitVector) {
 
-        if (entity instanceof ArmorStand armorStand && player.isShiftKeyDown() && !armorStand.isMarker() && !player.isSpectator()) {
+        if (entity instanceof ArmorStand armorStand && player.isShiftKeyDown() && !armorStand.isMarker() &&
+                !player.isSpectator()) {
 
             if (!level.isClientSide) {
 
@@ -45,7 +46,7 @@ public class ArmorStandGearHandler {
         // we respect disabled slots on the server, this is not possible to do with the client-side implementation,
         // since the field is not synced to the client, the interaction should just fail then
         int disabledSlots = ((ArmorStandAccessor) armorStand).armorquickswap$getDisabledSlots();
-        if ((disabledSlots & 1 << slot.getFilterFlag()) != 0) {
+        if ((disabledSlots & 1 << slot.getFilterBit(0)) != 0) {
             return false;
         } else if (!stack.isEmpty() && stack.getCount() > 1) {
             if (!itemInSlot.isEmpty()) {

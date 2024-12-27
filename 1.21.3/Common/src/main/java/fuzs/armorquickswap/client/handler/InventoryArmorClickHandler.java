@@ -4,11 +4,11 @@ import com.mojang.blaze3d.platform.InputConstants;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ItemStack;
 
 import java.lang.invoke.MethodHandle;
@@ -26,9 +26,9 @@ public class InventoryArmorClickHandler {
 
         if (button != InputConstants.MOUSE_BUTTON_RIGHT) return EventResult.PASS;
 
-        Slot hoveredSlot = screen.findSlot(mouseX, mouseY);
+        Slot hoveredSlot = screen.getHoveredSlot(mouseX, mouseY);
 
-        if (hoveredSlot != null && hoveredSlot.getItem().getItem() instanceof ArmorItem item) {
+        if (hoveredSlot != null && hoveredSlot.getItem().has(DataComponents.EQUIPPABLE)) {
 
             Minecraft minecraft = screen.minecraft;
             Inventory inventory = minecraft.player.getInventory();
@@ -36,7 +36,8 @@ public class InventoryArmorClickHandler {
             hoveredSlot = findNestedSlot(hoveredSlot);
             if (hoveredSlot.container != inventory) return EventResult.PASS;
 
-            Slot armorSlot = LocalArmorStandGearHandler.findInventorySlot(screen.getMenu(), item.getEquipmentSlot().getIndex(inventory.items.size()));
+            Slot armorSlot = LocalArmorStandGearHandler.findInventorySlot(screen.getMenu(),
+                    hoveredSlot.getItem().get(DataComponents.EQUIPPABLE).slot().getIndex(inventory.items.size()));
             if (armorSlot == null) return EventResult.PASS;
 
             if (!ItemStack.isSameItemSameComponents(hoveredSlot.getItem(), armorSlot.getItem())) {
@@ -46,7 +47,11 @@ public class InventoryArmorClickHandler {
                     performCreativeItemSwap(minecraft.player, hoveredSlot, armorSlot);
                 } else {
 
-                    minecraft.gameMode.handleInventoryMouseClick(screen.getMenu().containerId, armorSlot.index, hoveredSlot.getContainerSlot(), ClickType.SWAP, minecraft.player);
+                    minecraft.gameMode.handleInventoryMouseClick(screen.getMenu().containerId,
+                            armorSlot.index,
+                            hoveredSlot.getContainerSlot(),
+                            ClickType.SWAP,
+                            minecraft.player);
                 }
             }
 
@@ -70,7 +75,8 @@ public class InventoryArmorClickHandler {
 
     private static Slot findNestedSlot(Slot slot, int searchDepth) {
         Objects.requireNonNull(slot, "slot is null");
-        slot = SLOT_CLAZZ_METHOD_HANDLES.computeIfAbsent(slot.getClass(), clazz -> findNestedSlot(clazz, searchDepth)).apply(slot);
+        slot = SLOT_CLAZZ_METHOD_HANDLES.computeIfAbsent(slot.getClass(), clazz -> findNestedSlot(clazz, searchDepth))
+                .apply(slot);
         Objects.requireNonNull(slot, "slot is null");
         return slot;
     }

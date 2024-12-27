@@ -29,7 +29,8 @@ public class LocalArmorStandGearHandler {
         // only run when missing on the server, as the server-side implementation is much safer
         if (ModLoaderEnvironment.INSTANCE.isModPresentServerside(ArmorQuickSwap.MOD_ID)) return EventResult.PASS;
 
-        if (hitResult.getType() == HitResult.Type.ENTITY && ((EntityHitResult) hitResult).getEntity() instanceof ArmorStand armorStand && player.isShiftKeyDown()) {
+        if (hitResult.getType() == HitResult.Type.ENTITY &&
+                ((EntityHitResult) hitResult).getEntity() instanceof ArmorStand armorStand && player.isShiftKeyDown()) {
 
             AbstractContainerMenu containerMenu = player.containerMenu;
             Slot slot = findInventorySlot(containerMenu, player.getInventory().selected);
@@ -47,7 +48,11 @@ public class LocalArmorStandGearHandler {
                 // this mainly affects the first person item renderer as well as the selected item tooltip above the hotbar
                 // setting the count back to what it was does not trigger an update for those mentioned, and as the selected stack is returned at the end of this method no update should trigger
                 int selectedItemCount = itemStack.getCount();
-                minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, slot.index, InputConstants.MOUSE_BUTTON_LEFT, ClickType.PICKUP, player);
+                minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId,
+                        slot.index,
+                        InputConstants.MOUSE_BUTTON_LEFT,
+                        ClickType.PICKUP,
+                        player);
                 itemStack.setCount(selectedItemCount);
             }
 
@@ -56,7 +61,8 @@ public class LocalArmorStandGearHandler {
                 // just do this for swapping armor, no intention for supporting hand items since armor stand arms are disabled in vanilla anyway
                 if (equipmentSlot.isArmor()) {
 
-                    Slot armorSlot = findInventorySlot(containerMenu, equipmentSlot.getIndex(player.getInventory().items.size()));
+                    Slot armorSlot = findInventorySlot(containerMenu,
+                            equipmentSlot.getIndex(player.getInventory().items.size()));
                     if (armorSlot == null) continue;
 
                     boolean playerHasArmor = armorSlot.hasItem();
@@ -66,7 +72,11 @@ public class LocalArmorStandGearHandler {
 
                         // if we are wearing an armor piece corresponding to the armor stand part we are about to click swap it to the selected slot,
                         // so we can place or swap with the armor stand equipment
-                        minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, armorSlot.index, slot.getContainerSlot(), ClickType.SWAP, player);
+                        minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId,
+                                armorSlot.index,
+                                slot.getContainerSlot(),
+                                ClickType.SWAP,
+                                player);
 
                         Vec3 hitVector = hitResult.getLocation();
 
@@ -74,10 +84,15 @@ public class LocalArmorStandGearHandler {
 
                             // set the y-value on the hit vector to a value corresponding to the current equipment slot
                             // we don't need this when the player is holding an armor item to swap with, vanilla will select the correct piece from the stand
-                            hitVector = new Vec3(hitVector.x(), armorStand.getY() + getEquipmentClickHeight(equipmentSlot, armorStand.isSmall()), hitVector.z());
+                            hitVector = new Vec3(hitVector.x(),
+                                    armorStand.getY() + getEquipmentClickHeight(equipmentSlot, armorStand.isSmall()),
+                                    hitVector.z());
                         }
 
-                        minecraft.gameMode.interactAt(player, armorStand, new EntityHitResult(armorStand, hitVector), interactionHand);
+                        minecraft.gameMode.interactAt(player,
+                                armorStand,
+                                new EntityHitResult(armorStand, hitVector),
+                                interactionHand);
                         // also perform interaction client-side to avoid potential desyncs
                         // this ignores disabled slots as the client doesn't know them, but that should be a rare scenario
                         interactAt(armorStand, player, hitVector.subtract(armorStand.position()), interactionHand);
@@ -91,7 +106,11 @@ public class LocalArmorStandGearHandler {
                         }
 
                         // if the amor stand had equipment where we clicked we are holding that piece now, so set it to our armor slot
-                        minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, armorSlot.index, slot.getContainerSlot(), ClickType.SWAP, player);
+                        minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId,
+                                armorSlot.index,
+                                slot.getContainerSlot(),
+                                ClickType.SWAP,
+                                player);
                     }
                 }
             }
@@ -99,7 +118,11 @@ public class LocalArmorStandGearHandler {
             if (hasItemInHand) {
 
                 // set back the originally selected item to the main hand slot which we parked as the cursor carried stack, so we can freely use the selected slot
-                minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId, slot.index, InputConstants.MOUSE_BUTTON_LEFT, ClickType.PICKUP, player);
+                minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId,
+                        slot.index,
+                        InputConstants.MOUSE_BUTTON_LEFT,
+                        ClickType.PICKUP,
+                        player);
             }
 
             // manually swing the player hand since the event won't do it when cancelled
@@ -149,11 +172,12 @@ public class LocalArmorStandGearHandler {
                 EquipmentSlot slot = player.getEquipmentSlotForItem(itemInHand);
                 if (itemInHand.isEmpty()) {
                     EquipmentSlot equipmentSlot = getClickedSlot(armorStand, hitVector);
-                    if (armorStand.hasItemInSlot(equipmentSlot) && swapItem(armorStand, player, equipmentSlot, itemInHand, interactionHand)) {
+                    if (armorStand.hasItemInSlot(equipmentSlot) &&
+                            swapItem(armorStand, player, equipmentSlot, itemInHand, interactionHand)) {
                         return InteractionResult.SUCCESS;
                     }
                 } else {
-                    if (slot.getType() == EquipmentSlot.Type.HAND && !armorStand.isShowArms()) {
+                    if (slot.getType() == EquipmentSlot.Type.HAND && !armorStand.showArms()) {
                         return InteractionResult.FAIL;
                     }
 
@@ -176,13 +200,15 @@ public class LocalArmorStandGearHandler {
         EquipmentSlot equipmentSlot2 = EquipmentSlot.FEET;
         if (d >= 0.1 && d < 0.1 + (bl ? 0.8 : 0.45) && armorStand.hasItemInSlot(equipmentSlot2)) {
             equipmentSlot = EquipmentSlot.FEET;
-        } else if (d >= 0.9 + (bl ? 0.3 : 0.0) && d < 0.9 + (bl ? 1.0 : 0.7) && armorStand.hasItemInSlot(EquipmentSlot.CHEST)) {
+        } else if (d >= 0.9 + (bl ? 0.3 : 0.0) && d < 0.9 + (bl ? 1.0 : 0.7) &&
+                armorStand.hasItemInSlot(EquipmentSlot.CHEST)) {
             equipmentSlot = EquipmentSlot.CHEST;
         } else if (d >= 0.4 && d < 0.4 + (bl ? 1.0 : 0.8) && armorStand.hasItemInSlot(EquipmentSlot.LEGS)) {
             equipmentSlot = EquipmentSlot.LEGS;
         } else if (d >= 1.6 && armorStand.hasItemInSlot(EquipmentSlot.HEAD)) {
             equipmentSlot = EquipmentSlot.HEAD;
-        } else if (!armorStand.hasItemInSlot(EquipmentSlot.MAINHAND) && armorStand.hasItemInSlot(EquipmentSlot.OFFHAND)) {
+        } else if (!armorStand.hasItemInSlot(EquipmentSlot.MAINHAND) &&
+                armorStand.hasItemInSlot(EquipmentSlot.OFFHAND)) {
             equipmentSlot = EquipmentSlot.OFFHAND;
         }
 
