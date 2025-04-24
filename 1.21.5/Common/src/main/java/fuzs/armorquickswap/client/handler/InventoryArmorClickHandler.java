@@ -37,12 +37,15 @@ public class InventoryArmorClickHandler {
             if (hoveredSlot.container != inventory) return EventResult.PASS;
 
             Slot armorSlot = LocalArmorStandGearHandler.findInventorySlot(screen.getMenu(),
-                    hoveredSlot.getItem().get(DataComponents.EQUIPPABLE).slot().getIndex(inventory.items.size()));
+                    hoveredSlot.getItem()
+                            .get(DataComponents.EQUIPPABLE)
+                            .slot()
+                            .getIndex(inventory.getNonEquipmentItems().size()));
             if (armorSlot == null) return EventResult.PASS;
 
             if (!ItemStack.isSameItemSameComponents(hoveredSlot.getItem(), armorSlot.getItem())) {
 
-                if (minecraft.gameMode.hasInfiniteItems()) {
+                if (minecraft.player.hasInfiniteMaterials()) {
 
                     performCreativeItemSwap(minecraft.player, hoveredSlot, armorSlot);
                 } else {

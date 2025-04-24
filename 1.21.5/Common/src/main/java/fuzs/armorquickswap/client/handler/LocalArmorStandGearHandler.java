@@ -33,7 +33,7 @@ public class LocalArmorStandGearHandler {
                 ((EntityHitResult) hitResult).getEntity() instanceof ArmorStand armorStand && player.isShiftKeyDown()) {
 
             AbstractContainerMenu containerMenu = player.containerMenu;
-            Slot slot = findInventorySlot(containerMenu, player.getInventory().selected);
+            Slot slot = findInventorySlot(containerMenu, player.getInventory().getSelectedSlot());
             if (slot == null) return EventResult.PASS;
 
             // we pick up the selected item, which sets it to the cursor carried stack for the inventory menu (which is always open for the player while no other container menu is)
@@ -62,7 +62,7 @@ public class LocalArmorStandGearHandler {
                 if (equipmentSlot.isArmor()) {
 
                     Slot armorSlot = findInventorySlot(containerMenu,
-                            equipmentSlot.getIndex(player.getInventory().items.size()));
+                            equipmentSlot.getIndex(player.getInventory().getNonEquipmentItems().size()));
                     if (armorSlot == null) continue;
 
                     boolean playerHasArmor = armorSlot.hasItem();
@@ -97,7 +97,7 @@ public class LocalArmorStandGearHandler {
                         // this ignores disabled slots as the client doesn't know them, but that should be a rare scenario
                         interactAt(armorStand, player, hitVector.subtract(armorStand.position()), interactionHand);
 
-                        if (!armorStandHasArmor && minecraft.gameMode.hasInfiniteItems()) {
+                        if (!armorStandHasArmor && minecraft.player.hasInfiniteMaterials()) {
 
                             // creative mode doesn't remove armor item from hand if the armor stand has nothing to switch with (clicked armor stand equipment slot is empty)
                             // so we delete the armor item that was duplicated manually from the player hand so our loop may continue
