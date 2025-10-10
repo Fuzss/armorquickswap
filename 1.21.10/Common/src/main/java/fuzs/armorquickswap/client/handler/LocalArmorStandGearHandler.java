@@ -2,8 +2,8 @@ package fuzs.armorquickswap.client.handler;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import fuzs.armorquickswap.ArmorQuickSwap;
-import fuzs.puzzleslib.api.core.v1.ModLoaderEnvironment;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
+import fuzs.puzzleslib.api.network.v4.NetworkingHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
@@ -27,10 +27,13 @@ public class LocalArmorStandGearHandler {
     public static EventResult onUseInteraction(Minecraft minecraft, LocalPlayer player, InteractionHand interactionHand, HitResult hitResult) {
 
         // only run when missing on the server, as the server-side implementation is much safer
-        if (ModLoaderEnvironment.INSTANCE.isModPresentServerside(ArmorQuickSwap.MOD_ID)) return EventResult.PASS;
+        if (NetworkingHelper.isModPresentServerside(ArmorQuickSwap.MOD_ID)) {
+            return EventResult.PASS;
+        }
 
-        if (hitResult.getType() == HitResult.Type.ENTITY &&
-                ((EntityHitResult) hitResult).getEntity() instanceof ArmorStand armorStand && player.isShiftKeyDown()) {
+        if (hitResult.getType() == HitResult.Type.ENTITY
+                && ((EntityHitResult) hitResult).getEntity() instanceof ArmorStand armorStand
+                && player.isShiftKeyDown()) {
 
             AbstractContainerMenu containerMenu = player.containerMenu;
             Slot slot = findInventorySlot(containerMenu, player.getInventory().getSelectedSlot());
@@ -172,8 +175,11 @@ public class LocalArmorStandGearHandler {
                 EquipmentSlot slot = player.getEquipmentSlotForItem(itemInHand);
                 if (itemInHand.isEmpty()) {
                     EquipmentSlot equipmentSlot = getClickedSlot(armorStand, hitVector);
-                    if (armorStand.hasItemInSlot(equipmentSlot) &&
-                            swapItem(armorStand, player, equipmentSlot, itemInHand, interactionHand)) {
+                    if (armorStand.hasItemInSlot(equipmentSlot) && swapItem(armorStand,
+                            player,
+                            equipmentSlot,
+                            itemInHand,
+                            interactionHand)) {
                         return InteractionResult.SUCCESS;
                     }
                 } else {
@@ -200,15 +206,15 @@ public class LocalArmorStandGearHandler {
         EquipmentSlot equipmentSlot2 = EquipmentSlot.FEET;
         if (d >= 0.1 && d < 0.1 + (bl ? 0.8 : 0.45) && armorStand.hasItemInSlot(equipmentSlot2)) {
             equipmentSlot = EquipmentSlot.FEET;
-        } else if (d >= 0.9 + (bl ? 0.3 : 0.0) && d < 0.9 + (bl ? 1.0 : 0.7) &&
-                armorStand.hasItemInSlot(EquipmentSlot.CHEST)) {
+        } else if (d >= 0.9 + (bl ? 0.3 : 0.0) && d < 0.9 + (bl ? 1.0 : 0.7)
+                && armorStand.hasItemInSlot(EquipmentSlot.CHEST)) {
             equipmentSlot = EquipmentSlot.CHEST;
         } else if (d >= 0.4 && d < 0.4 + (bl ? 1.0 : 0.8) && armorStand.hasItemInSlot(EquipmentSlot.LEGS)) {
             equipmentSlot = EquipmentSlot.LEGS;
         } else if (d >= 1.6 && armorStand.hasItemInSlot(EquipmentSlot.HEAD)) {
             equipmentSlot = EquipmentSlot.HEAD;
-        } else if (!armorStand.hasItemInSlot(EquipmentSlot.MAINHAND) &&
-                armorStand.hasItemInSlot(EquipmentSlot.OFFHAND)) {
+        } else if (!armorStand.hasItemInSlot(EquipmentSlot.MAINHAND)
+                && armorStand.hasItemInSlot(EquipmentSlot.OFFHAND)) {
             equipmentSlot = EquipmentSlot.OFFHAND;
         }
 

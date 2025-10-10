@@ -16,10 +16,10 @@ public class ArmorStandGearHandler {
 
     public static EventResultHolder<InteractionResult> onUseEntityAt(Player player, Level level, InteractionHand interactionHand, Entity entity, Vec3 hitVector) {
 
-        if (entity instanceof ArmorStand armorStand && player.isShiftKeyDown() && !armorStand.isMarker() &&
-                !player.isSpectator()) {
+        if (entity instanceof ArmorStand armorStand && player.isShiftKeyDown() && !armorStand.isMarker()
+                && !player.isSpectator()) {
 
-            if (!level.isClientSide) {
+            if (!level.isClientSide()) {
 
                 for (EquipmentSlot equipmentSlot : EquipmentSlot.values()) {
 
