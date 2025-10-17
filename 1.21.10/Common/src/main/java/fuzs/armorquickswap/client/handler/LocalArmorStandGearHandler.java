@@ -5,6 +5,7 @@ import fuzs.armorquickswap.ArmorQuickSwap;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
 import fuzs.puzzleslib.api.network.v4.NetworkingHelper;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -138,15 +139,19 @@ public class LocalArmorStandGearHandler {
     }
 
     @Nullable
-    public static Slot findInventorySlot(AbstractContainerMenu containerMenu, int slotNum) {
+    public static Slot findInventorySlot(AbstractContainerMenu containerMenu, int slotIndex) {
         // do not rely on hardcoded slot numbers, instead go out and search for the correct slot
         // container menu slots vs inventory slots really is a mess, so probably better to take this approach
         for (Slot slot : containerMenu.slots) {
-            slot = InventoryArmorClickHandler.findNestedSlot(slot);
-            if (slot.container instanceof Inventory && slot.getContainerSlot() == slotNum) {
+            if (slot instanceof CreativeModeInventoryScreen.SlotWrapper slotWrapper) {
+                slot = slotWrapper.target;
+            }
+
+            if (slot.container instanceof Inventory && slot.getContainerSlot() == slotIndex) {
                 return slot;
             }
         }
+
         return null;
     }
 

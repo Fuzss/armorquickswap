@@ -2,9 +2,10 @@ package fuzs.armorquickswap.client.handler;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import fuzs.puzzleslib.api.event.v1.core.EventResult;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -12,16 +13,7 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.reflect.Field;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.UnaryOperator;
-
 public class InventoryArmorClickHandler {
-    private static final Map<Class<? extends Slot>, UnaryOperator<Slot>> SLOT_CLAZZ_METHOD_HANDLES = new IdentityHashMap<>();
 
     public static EventResult onBeforeMouseClick(AbstractContainerScreen<?> screen, MouseButtonEvent mouseButtonEvent) {
         if (mouseButtonEvent.button() != InputConstants.MOUSE_BUTTON_RIGHT) {
@@ -29,85 +21,83 @@ public class InventoryArmorClickHandler {
         }
 
         Slot hoveredSlot = screen.getHoveredSlot(mouseButtonEvent.x(), mouseButtonEvent.y());
-        if (hoveredSlot != null && hoveredSlot.getItem().has(DataComponents.EQUIPPABLE)) {
-            Minecraft minecraft = screen.minecraft;
-            Inventory inventory = minecraft.player.getInventory();
-            hoveredSlot = findNestedSlot(hoveredSlot);
-            if (hoveredSlot.container != inventory) {
-                return EventResult.PASS;
-            }
+        if (hoveredSlot != null) {
+            ItemStack itemStack = hoveredSlot.getItem();
+            if (itemStack.has(DataComponents.EQUIPPABLE) && !itemStack.isStackable()) {
+                if (hoveredSlot instanceof CreativeModeInventoryScreen.SlotWrapper slotWrapper) {
+                    hoveredSlot = slotWrapper.target;
+                }
 
-            Slot armorSlot = LocalArmorStandGearHandler.findInventorySlot(screen.getMenu(),
-                    hoveredSlot.getItem()
-                            .get(DataComponents.EQUIPPABLE)
-                            .slot()
-                            .getIndex(inventory.getNonEquipmentItems().size()));
-            if (armorSlot == null) {
-                return EventResult.PASS;
-            }
+                Inventory inventory = screen.minecraft.player.getInventory();
+                if (hoveredSlot.container != inventory) {
+                    return EventResult.PASS;
+                }
 
-            if (!ItemStack.isSameItemSameComponents(hoveredSlot.getItem(), armorSlot.getItem())) {
-                if (minecraft.player.hasInfiniteMaterials()) {
-                    performCreativeItemSwap(minecraft.player, hoveredSlot, armorSlot);
-                } else {
-                    minecraft.gameMode.handleInventoryMouseClick(screen.getMenu().containerId,
-                            armorSlot.index,
-                            hoveredSlot.getContainerSlot(),
-                            ClickType.SWAP,
-                            minecraft.player);
+                int armorSlotIndex = itemStack.get(DataComponents.EQUIPPABLE)
+                        .slot()
+                        .getIndex(inventory.getNonEquipmentItems().size());
+                Slot armorSlot = LocalArmorStandGearHandler.findInventorySlot(screen.getMenu(), armorSlotIndex);
+                if (armorSlot != null && !ItemStack.isSameItemSameComponents(itemStack, armorSlot.getItem())) {
+                    swapInventorySlots(screen.minecraft.gameMode, screen.minecraft.player, armorSlot, hoveredSlot);
+                    return EventResult.INTERRUPT;
                 }
             }
-
-            return EventResult.INTERRUPT;
         }
 
         return EventResult.PASS;
     }
 
-    private static void performCreativeItemSwap(Player player, Slot hoveredSlot, Slot armorSlot) {
-        ItemStack hoveredItem = hoveredSlot.getItem();
-        ItemStack armorItem = armorSlot.getItem();
-        player.getInventory().setItem(hoveredSlot.getContainerSlot(), armorItem.copy());
-        player.getInventory().setItem(armorSlot.getContainerSlot(), hoveredItem.copy());
+    private static void swapInventorySlots(MultiPlayerGameMode gameMode, Player player, Slot destinationSlot, Slot clickedSlot) {
+        if (player.hasInfiniteMaterials()) {
+            swapCreativeInventorySlots(player, destinationSlot, clickedSlot);
+        } else {
+            swapSurvivalInventorySlots(gameMode, player, destinationSlot, clickedSlot);
+        }
+    }
+
+    private static void swapCreativeInventorySlots(Player player, Slot destinationSlot, Slot clickedSlot) {
+        ItemStack hoveredItemStack = clickedSlot.getItem();
+        ItemStack armorItemStack = destinationSlot.getItem();
+        player.getInventory().setItem(clickedSlot.getContainerSlot(), armorItemStack.copy());
+        player.getInventory().setItem(destinationSlot.getContainerSlot(), hoveredItemStack.copy());
         player.inventoryMenu.broadcastChanges();
     }
 
-    public static Slot findNestedSlot(Slot slot) {
-        return findNestedSlot(slot, 5);
-    }
-
-    private static Slot findNestedSlot(Slot slot, int searchDepth) {
-        Objects.requireNonNull(slot, "slot is null");
-        slot = SLOT_CLAZZ_METHOD_HANDLES.computeIfAbsent(slot.getClass(), clazz -> findNestedSlot(clazz, searchDepth))
-                .apply(slot);
-        Objects.requireNonNull(slot, "slot is null");
-        return slot;
-    }
-
-    private static UnaryOperator<Slot> findNestedSlot(Class<? extends Slot> clazz, int searchDepth) {
-        // the creative mode screen wraps slots, but in a terrible way where not all properties of the original are forwarded, mainly public fields,
-        // so we use this general approach in case another mod has a similar idea and just search for a wrapped slot inside every slot instance
-        // the resulting method handle is cached, so this isn't really a burden (not that the code runs often anyway)
-        if (searchDepth >= 0 && clazz != Slot.class) {
-            for (Field field : clazz.getDeclaredFields()) {
-                if (Slot.class.isAssignableFrom(field.getType()) && !clazz.isAssignableFrom(field.getType())) {
-                    field.setAccessible(true);
-                    try {
-                        MethodHandle methodHandle = MethodHandles.lookup().unreflectGetter(field);
-                        return innerSlot -> {
-                            try {
-                                return findNestedSlot((Slot) methodHandle.invoke(innerSlot), searchDepth - 1);
-                            } catch (Throwable e) {
-                                throw new RuntimeException(e);
-                            }
-                        };
-                    } catch (Throwable e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            }
+    /**
+     * Minecraft 1.20.4 introduced a fun limitation in
+     * {@link net.minecraft.world.inventory.AbstractContainerMenu#doClick(int, int, ClickType, Player)} where the slot
+     * being swapped with (the second slot in the method call) can only be from the hotbar or offhand.
+     * <p>
+     * Previously, freely swapping with any other inventory slot was possible.
+     *
+     * @param gameMode        the local game mode controller
+     * @param player          the player
+     * @param destinationSlot the slot the item will be but in / swapped with
+     * @param clickedSlot     the item slot that was clicked
+     */
+    private static void swapSurvivalInventorySlots(MultiPlayerGameMode gameMode, Player player, Slot destinationSlot, Slot clickedSlot) {
+        if (clickedSlot.getContainerSlot() >= 0 && clickedSlot.getContainerSlot() < Inventory.getSelectionSize()) {
+            gameMode.handleInventoryMouseClick(player.containerMenu.containerId,
+                    destinationSlot.index,
+                    clickedSlot.getContainerSlot(),
+                    ClickType.SWAP,
+                    player);
+        } else {
+            gameMode.handleInventoryMouseClick(player.containerMenu.containerId,
+                    clickedSlot.index,
+                    InputConstants.MOUSE_BUTTON_LEFT,
+                    ClickType.PICKUP,
+                    player);
+            gameMode.handleInventoryMouseClick(player.containerMenu.containerId,
+                    destinationSlot.index,
+                    InputConstants.MOUSE_BUTTON_LEFT,
+                    ClickType.PICKUP,
+                    player);
+            gameMode.handleInventoryMouseClick(player.containerMenu.containerId,
+                    clickedSlot.index,
+                    InputConstants.MOUSE_BUTTON_LEFT,
+                    ClickType.PICKUP,
+                    player);
         }
-
-        return UnaryOperator.identity();
     }
 }
