@@ -47,10 +47,10 @@ public class LocalArmorStandGearHandler {
 
             if (hasItemInHand) {
 
-                // when the selected item is picked up here a copied item stack instance is set as the carried stack, while the original has its count set to zero
-                // this is a problem for areas of the game that cache the held stack, since they will now want to update as the count of the stack they are holding on to has changed
-                // this mainly affects the first person item renderer as well as the selected item tooltip above the hotbar
-                // setting the count back to what it was does not trigger an update for those mentioned, and as the selected stack is returned at the end of this method no update should trigger
+                // When the selected item is picked up here, a copied item stack is set as the carried stack, while the original has its count set to zero.
+                // This is a problem for areas of the game that cache the held stack, since they will now want to update as the count of the stack they are holding on to has changed.
+                // This mainly affects the first-person item renderer as well as the selected item tooltip above the hotbar.
+                // Setting the count back to what it was does not trigger an update for those mentioned, and as the selected stack is returned at the end of this method, no update should trigger.
                 int selectedItemCount = itemStack.getCount();
                 minecraft.gameMode.handleInventoryMouseClick(containerMenu.containerId,
                         slot.index,
