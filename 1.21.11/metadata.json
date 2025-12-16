@@ -1,0 +1,61 @@
+{
+    "mod": {
+        "id": "armorquickswap",
+        "group": "fuzs.armorquickswap",
+        "name": "Armor Quick Swap",
+        "version": "21.11.0",
+        "authors": [
+            "Fuzs"
+        ],
+        "description": "Instant armor swapping from your inventory or armor stands. Works anywhere, client or server.",
+        "license": "MPL-2.0"
+    },
+    "dependencies": [
+        {
+            "name": "fabricapi",
+            "type": "required",
+            "platforms": [
+                "fabric"
+            ]
+        },
+        {
+            "name": "forgeconfigapiport",
+            "type": "required",
+            "platforms": [
+                "fabric"
+            ]
+        },
+        {
+            "name": "puzzleslib",
+            "type": "required",
+            "platforms": [
+                "fabric",
+                "neoforge"
+            ]
+        }
+    ],
+    "links": [
+        {
+            "name": "github",
+            "slug": "armorquickswap"
+        },
+        {
+            "name": "curseforge",
+            "slug": "armor-quick-swap",
+            "id": "1367068"
+        },
+        {
+            "name": "modrinth",
+            "slug": "armor-quick-swap",
+            "id": "YxCEfYbF"
+        }
+    ],
+    "environments": {
+        "client": "required",
+        "server": "unsupported"
+    },
+    "platforms": [
+        "fabric",
+        "neoforge"
+    ]
+}
