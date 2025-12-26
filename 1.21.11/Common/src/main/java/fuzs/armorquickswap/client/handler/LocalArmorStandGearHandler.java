@@ -7,9 +7,12 @@ import fuzs.puzzleslib.api.network.v4.NetworkingHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -38,7 +41,9 @@ public class LocalArmorStandGearHandler {
 
             AbstractContainerMenu containerMenu = player.containerMenu;
             Slot slot = findInventorySlot(containerMenu, player.getInventory().getSelectedSlot());
-            if (slot == null) return EventResult.PASS;
+            if (slot == null) {
+                return EventResult.PASS;
+            }
 
             // we pick up the selected item, which sets it to the cursor carried stack for the inventory menu (which is always open for the player while no other container menu is)
             // this is like a temporary storage that doesn't require using a different inventory slot, as we need the selected slot for interacting with the armor stand
@@ -60,14 +65,16 @@ public class LocalArmorStandGearHandler {
                 itemStack.setCount(selectedItemCount);
             }
 
-            for (EquipmentSlot equipmentSlot : EquipmentSlot.values()) {
+            for (EquipmentSlot equipmentSlot : EquipmentSlotGroup.ARMOR) {
 
                 // just do this for swapping armor, no intention for supporting hand items since armor stand arms are disabled in vanilla anyway
-                if (equipmentSlot.isArmor()) {
+                if (equipmentSlot.getType() == EquipmentSlot.Type.HUMANOID_ARMOR) {
 
                     Slot armorSlot = findInventorySlot(containerMenu,
                             equipmentSlot.getIndex(player.getInventory().getNonEquipmentItems().size()));
-                    if (armorSlot == null) continue;
+                    if (armorSlot == null) {
+                        continue;
+                    }
 
                     boolean playerHasArmor = armorSlot.hasItem();
                     boolean armorStandHasArmor = armorStand.hasItemInSlot(equipmentSlot);
@@ -87,9 +94,9 @@ public class LocalArmorStandGearHandler {
                         if (!playerHasArmor) {
 
                             // set the y-value on the hit vector to a value corresponding to the current equipment slot
-                            // we don't need this when the player is holding an armor item to swap with, vanilla will select the correct piece from the stand
+                            // we don't need this when the player is holding an armor item to swap with; vanilla will select the correct piece from the stand
                             hitVector = new Vec3(hitVector.x(),
-                                    armorStand.getY() + getEquipmentClickHeight(equipmentSlot, armorStand.isSmall()),
+                                    armorStand.getY() + getEquipmentClickHeight(armorStand, equipmentSlot),
                                     hitVector.z());
                         }
 
@@ -131,7 +138,6 @@ public class LocalArmorStandGearHandler {
 
             // manually swing the player hand since the event won't do it when cancelled
             player.swing(interactionHand);
-
             return EventResult.INTERRUPT;
         }
 
@@ -155,19 +161,18 @@ public class LocalArmorStandGearHandler {
         return null;
     }
 
-    private static double getEquipmentClickHeight(EquipmentSlot equipmentSlot, boolean isSmall) {
+    /**
+     * @see ArmorStand#getClickedSlot(Vec3)
+     */
+    private static double getEquipmentClickHeight(ArmorStand armorStand, EquipmentSlot equipmentSlot) {
+        boolean isSmallArmorStand = armorStand.isSmall();
         return switch (equipmentSlot) {
-            // clickedHeight >= 0.1D && clickedHeight < (isSmall ? 0.9D : 0.55D)
-            case FEET -> isSmall ? 0.5 : 0.375;
-            // clickedHeight >= (isSmall ? 1.2D : 0.9D) && clickedHeight < (isSmall ? 1.9D : 1.6D)
-            case CHEST -> isSmall ? 1.55 : 1.25;
-            // clickedHeight >= 0.4D && clickedHeight < (isSmall ? 1.4D : 1.2D)
-            case LEGS -> isSmall ? 0.9 : 0.8;
-            // clickedHeight >= 1.6D && clickedHeight < 1.975D
-            // increase to avoid conflict with chest slot when small
-            case HEAD -> 1.95;
-            default -> throw new RuntimeException();
-        } * (isSmall ? 0.5 : 1.0);
+            case FEET -> Mth.lerp(0.5, 0.1, 0.1 + (isSmallArmorStand ? 0.8 : 0.45));
+            case CHEST -> Mth.lerp(0.5, 0.9 + (isSmallArmorStand ? 0.3 : 0.0), 0.9 + (isSmallArmorStand ? 1.0 : 0.7));
+            case LEGS -> Mth.lerp(0.5, 0.4, 0.4 + (isSmallArmorStand ? 1.0 : 0.8));
+            case HEAD -> Mth.lerp(0.5, 1.6, EntityType.ARMOR_STAND.getHeight());
+            default -> throw new IllegalArgumentException();
+        } * armorStand.getScale() * armorStand.getAgeScale();
     }
 
     private static InteractionResult interactAt(ArmorStand armorStand, Player player, Vec3 hitVector, InteractionHand interactionHand) {
@@ -177,7 +182,6 @@ public class LocalArmorStandGearHandler {
                 return InteractionResult.SUCCESS;
             } else {
                 // cut out the client check here so the client also changes the gear
-                EquipmentSlot slot = player.getEquipmentSlotForItem(itemInHand);
                 if (itemInHand.isEmpty()) {
                     EquipmentSlot equipmentSlot = getClickedSlot(armorStand, hitVector);
                     if (armorStand.hasItemInSlot(equipmentSlot) && swapItem(armorStand,
@@ -188,11 +192,12 @@ public class LocalArmorStandGearHandler {
                         return InteractionResult.SUCCESS;
                     }
                 } else {
-                    if (slot.getType() == EquipmentSlot.Type.HAND && !armorStand.showArms()) {
+                    EquipmentSlot equipmentSlot = player.getEquipmentSlotForItem(itemInHand);
+                    if (equipmentSlot.getType() == EquipmentSlot.Type.HAND && !armorStand.showArms()) {
                         return InteractionResult.FAIL;
                     }
 
-                    if (swapItem(armorStand, player, slot, itemInHand, interactionHand)) {
+                    if (swapItem(armorStand, player, equipmentSlot, itemInHand, interactionHand)) {
                         return InteractionResult.SUCCESS;
                     }
                 }
@@ -204,43 +209,46 @@ public class LocalArmorStandGearHandler {
         }
     }
 
+    /**
+     * @see ArmorStand#getClickedSlot(Vec3)
+     */
     private static EquipmentSlot getClickedSlot(ArmorStand armorStand, Vec3 hitVector) {
-        EquipmentSlot equipmentSlot = EquipmentSlot.MAINHAND;
-        boolean bl = armorStand.isSmall();
-        double d = bl ? hitVector.y * 2.0 : hitVector.y;
-        EquipmentSlot equipmentSlot2 = EquipmentSlot.FEET;
-        if (d >= 0.1 && d < 0.1 + (bl ? 0.8 : 0.45) && armorStand.hasItemInSlot(equipmentSlot2)) {
-            equipmentSlot = EquipmentSlot.FEET;
-        } else if (d >= 0.9 + (bl ? 0.3 : 0.0) && d < 0.9 + (bl ? 1.0 : 0.7)
-                && armorStand.hasItemInSlot(EquipmentSlot.CHEST)) {
-            equipmentSlot = EquipmentSlot.CHEST;
-        } else if (d >= 0.4 && d < 0.4 + (bl ? 1.0 : 0.8) && armorStand.hasItemInSlot(EquipmentSlot.LEGS)) {
-            equipmentSlot = EquipmentSlot.LEGS;
-        } else if (d >= 1.6 && armorStand.hasItemInSlot(EquipmentSlot.HEAD)) {
-            equipmentSlot = EquipmentSlot.HEAD;
+        boolean isSmallArmorStand = armorStand.isSmall();
+        double hitLocationHeight = hitVector.y / (armorStand.getScale() * armorStand.getAgeScale());
+        if (hitLocationHeight >= 0.1 && hitLocationHeight < 0.1 + (isSmallArmorStand ? 0.8 : 0.45)
+                && armorStand.hasItemInSlot(EquipmentSlot.FEET)) {
+            return EquipmentSlot.FEET;
+        } else if (hitLocationHeight >= 0.9 + (isSmallArmorStand ? 0.3 : 0.0) && hitLocationHeight < 0.9 + (
+                isSmallArmorStand ? 1.0 : 0.7) && armorStand.hasItemInSlot(EquipmentSlot.CHEST)) {
+            return EquipmentSlot.CHEST;
+        } else if (hitLocationHeight >= 0.4 && hitLocationHeight < 0.4 + (isSmallArmorStand ? 1.0 : 0.8)
+                && armorStand.hasItemInSlot(EquipmentSlot.LEGS)) {
+            return EquipmentSlot.LEGS;
+        } else if (hitLocationHeight >= 1.6 && armorStand.hasItemInSlot(EquipmentSlot.HEAD)) {
+            return EquipmentSlot.HEAD;
         } else if (!armorStand.hasItemInSlot(EquipmentSlot.MAINHAND)
                 && armorStand.hasItemInSlot(EquipmentSlot.OFFHAND)) {
-            equipmentSlot = EquipmentSlot.OFFHAND;
+            return EquipmentSlot.OFFHAND;
+        } else {
+            return EquipmentSlot.MAINHAND;
         }
-
-        return equipmentSlot;
     }
 
-    private static boolean swapItem(ArmorStand armorStand, Player player, EquipmentSlot slot, ItemStack stack, InteractionHand hand) {
-        ItemStack itemInSlot = armorStand.getItemBySlot(slot);
-        if (player.getAbilities().instabuild && itemInSlot.isEmpty() && !stack.isEmpty()) {
-            armorStand.setItemSlot(slot, stack.copyWithCount(1));
+    private static boolean swapItem(ArmorStand armorStand, Player player, EquipmentSlot equipmentSlot, ItemStack itemStack, InteractionHand interactionHand) {
+        ItemStack itemInSlot = armorStand.getItemBySlot(equipmentSlot);
+        if (player.getAbilities().instabuild && itemInSlot.isEmpty() && !itemStack.isEmpty()) {
+            armorStand.setItemSlot(equipmentSlot, itemStack.copyWithCount(1));
             return true;
-        } else if (!stack.isEmpty() && stack.getCount() > 1) {
+        } else if (!itemStack.isEmpty() && itemStack.getCount() > 1) {
             if (!itemInSlot.isEmpty()) {
                 return false;
             } else {
-                armorStand.setItemSlot(slot, stack.split(1));
+                armorStand.setItemSlot(equipmentSlot, itemStack.split(1));
                 return true;
             }
         } else {
-            armorStand.setItemSlot(slot, stack);
-            player.setItemInHand(hand, itemInSlot);
+            armorStand.setItemSlot(equipmentSlot, itemStack);
+            player.setItemInHand(interactionHand, itemInSlot);
             return true;
         }
     }

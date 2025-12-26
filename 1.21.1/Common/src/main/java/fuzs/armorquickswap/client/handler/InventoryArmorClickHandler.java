@@ -9,7 +9,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.ItemStack;
 
 public class InventoryArmorClickHandler {
@@ -22,7 +22,8 @@ public class InventoryArmorClickHandler {
         Slot hoveredSlot = screen.findSlot(mouseX, mouseY);
         if (hoveredSlot != null) {
             ItemStack itemStack = hoveredSlot.getItem();
-            if (itemStack.getItem() instanceof ArmorItem item && !itemStack.isStackable()) {
+            Equipable equipable = Equipable.get(itemStack);
+            if (equipable != null && !itemStack.isStackable()) {
                 if (hoveredSlot instanceof CreativeModeInventoryScreen.SlotWrapper slotWrapper) {
                     hoveredSlot = slotWrapper.target;
                 }
@@ -32,7 +33,7 @@ public class InventoryArmorClickHandler {
                     return EventResult.PASS;
                 }
 
-                int armorSlotIndex = item.getEquipmentSlot().getIndex(inventory.items.size());
+                int armorSlotIndex = equipable.getEquipmentSlot().getIndex(inventory.items.size());
                 Slot armorSlot = LocalArmorStandGearHandler.findInventorySlot(screen.getMenu(), armorSlotIndex);
                 if (armorSlot != null && !ItemStack.isSameItemSameComponents(itemStack, armorSlot.getItem())) {
                     swapInventorySlots(screen.minecraft.gameMode, screen.minecraft.player, armorSlot, hoveredSlot);
