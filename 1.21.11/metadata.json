@@ -3,7 +3,7 @@
         "id": "armorquickswap",
         "group": "fuzs.armorquickswap",
         "name": "Armor Quick Swap",
-        "version": "21.11.1",
+        "version": "21.11.2",
         "authors": [
             "Fuzs"
         ],
@@ -51,8 +51,8 @@
         }
     ],
     "environments": {
-        "client": "required",
-        "server": "unsupported"
+        "client": "optional",
+        "server": "optional"
     },
     "platforms": [
         "fabric",
